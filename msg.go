@@ -223,15 +223,22 @@ type IfInfoMessage struct {
 
 func (m *IfInfoMessage) netlinkMessage() {}
 
+const attrFormat = "\n  %-16s %s"
+
 func (m *IfInfoMessage) String() string {
 	s := m.Header.String()
 
-	s += fmt.Sprintf(" Index: %d, Family: %s, Type: %s, Flags: %s", m.Index,
+	s += fmt.Sprintf("\nIndex: %d, Family: %s, Type: %s, Flags: %s", m.Index,
 		AddressFamily(m.Family),
 		IfInfoAttrKind(m.Header.Type),
 		IfInfoFlags(m.Flags))
 	if m.Change != 0 {
 		s += fmt.Sprintf(", Changed flags: %s", IfInfoFlags(m.Change))
+	}
+	for i := range m.Attrs {
+		if m.Attrs[i] != nil {
+			s += fmt.Sprintf(attrFormat, IfInfoAttrKind(i), m.Attrs[i])
+		}
 	}
 	return s
 }
@@ -386,9 +393,14 @@ func (m *IfAddrMessage) netlinkMessage() {}
 
 func (m *IfAddrMessage) String() string {
 	s := m.Header.String()
-	s += fmt.Sprintf(" Index: %d, Family: %s, Prefix Len %d, Flags: %s, Scope: %s", m.Index,
+	s += fmt.Sprintf("\nIndex: %d, Family: %s, Prefix Len %d, Flags: %s, Scope: %s", m.Index,
 		AddressFamily(m.Family),
 		m.Prefixlen, IfAddrFlags(m.Header.Flags), Scope(m.Scope))
+	for i := range m.Attrs {
+		if m.Attrs[i] != nil {
+			s += fmt.Sprintf(attrFormat, IfAddrAttrKind(i), m.Attrs[i])
+		}
+	}
 	return s
 }
 
@@ -442,9 +454,17 @@ func (m *RouteMessage) netlinkMessage() {}
 
 func (m *RouteMessage) String() string {
 	s := m.Header.String()
-	s += fmt.Sprintf(" Family: %s, Src/Dst Len %d/%d, Tos %d, Table %d, Protocol %s, Scope: %s, Type %s, Flags 0x%x",
+	s += fmt.Sprintf("\nFamily: %s, Src/Dst Len %d/%d, Tos %d, Table %d, Protocol %s, Scope: %s, Type %s",
 		AddressFamily(m.Family),
-		m.SrcLen, m.DstLen, m.Tos, m.Table, m.Protocol, m.Scope, m.Type, m.Flags)
+		m.SrcLen, m.DstLen, m.Tos, m.Table, m.Protocol, m.Scope, m.Type)
+	if m.Flags != 0 {
+		s += ", Flags " + m.Flags.String()
+	}
+	for i := range m.Attrs {
+		if m.Attrs[i] != nil {
+			s += fmt.Sprintf(attrFormat, RouteAttrKind(i), m.Attrs[i])
+		}
+	}
 	return s
 }
 
@@ -492,6 +512,11 @@ func (m *NeighborMessage) String() string {
 		RouteType(m.Type), NeighborState(m.State))
 	if m.Flags != 0 {
 		s += fmt.Sprintf(", Flags %s", NeighborFlags(m.Flags))
+	}
+	for i := range m.Attrs {
+		if m.Attrs[i] != nil {
+			s += fmt.Sprintf(attrFormat, NeighborAttrKind(i), m.Attrs[i])
+		}
 	}
 	return s
 }
@@ -580,49 +605,6 @@ func nextAttr(b []byte, i int) (n *NlAttr, v []byte, j int) {
 	return
 }
 
-func (n *Socket) RxMsg(msg Message) {
-	switch m := msg.(type) {
-	case *IfInfoMessage:
-		fmt.Printf("%v\n", m)
-		for i := range m.Attrs {
-			if m.Attrs[i] != nil {
-				fmt.Printf("  %-16s %s\n", IfInfoAttrKind(i), m.Attrs[i])
-			}
-		}
-
-	case *IfAddrMessage:
-		fmt.Printf("%v\n", m)
-		for i := range m.Attrs {
-			if m.Attrs[i] != nil {
-				fmt.Printf("  %-16s %s\n", IfAddrAttrKind(i), m.Attrs[i])
-			}
-		}
-	case *RouteMessage:
-		fmt.Printf("%v\n", m)
-		for i := range m.Attrs {
-			if m.Attrs[i] != nil {
-				fmt.Printf("  %-16s %s\n", RouteAttrKind(i), m.Attrs[i])
-			}
-		}
-
-	case *NeighborMessage:
-		fmt.Printf("%v\n", m)
-		for i := range m.Attrs {
-			if m.Attrs[i] != nil {
-				fmt.Printf("  %-16s %s\n", NeighborAttrKind(i), m.Attrs[i])
-			}
-		}
-
-	case *DoneMessage:
-		fmt.Printf("%v\n", m)
-	case *ErrorMessage:
-		fmt.Printf("%v\n", m)
-
-	default:
-		panic(m)
-	}
-}
-
 func (n *Socket) Rx() {
 	i := len(n.rx_buffer)
 	n.rx_buffer.Resize(4096)
@@ -663,7 +645,7 @@ func (n *Socket) Rx() {
 			panic("unhandled message " + h.Type.String())
 		}
 		m.Parse(msg)
-		n.RxMsg(m)
+		fmt.Printf("%s\n", m)
 	}
 	if i == len(n.rx_buffer) {
 		n.rx_buffer = n.rx_buffer[:0]

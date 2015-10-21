@@ -317,7 +317,7 @@ type Rtmsg struct {
 	Protocol RouteProtocol
 	Scope    Scope
 	Type     RouteType
-	Flags    uint32
+	Flags    RouteFlags
 }
 
 const SizeofRtmsg = 12
@@ -405,6 +405,24 @@ var routeProtocolNames = []string{
 }
 
 func (x RouteProtocol) String() string { return stringer(routeProtocolNames, int(x)) }
+
+type RouteFlags uint32
+
+const (
+	RTM_F_NOTIFY   RouteFlags = 0x100 /* Notify user of route change	*/
+	RTM_F_CLONED   RouteFlags = 0x200 /* This route is cloned		*/
+	RTM_F_EQUALIZE RouteFlags = 0x400 /* Multipath equalizer: NI	*/
+	RTM_F_PREFIX   RouteFlags = 0x800 /* Prefix addresses		*/
+)
+
+var routeFlagNames = []string{
+	8:  "Notify",
+	9:  "Cloned",
+	10: "Multipath equalize",
+	11: "Prefix",
+}
+
+func (x RouteFlags) String() string { return flagStringer(routeFlagNames, elib.Word(x)) }
 
 type RouteAttrKind int
 
