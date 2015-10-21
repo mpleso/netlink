@@ -1,7 +1,7 @@
 package main
 
 import (
-	"netlink"
+	"github.com/platinasystems/netlink"
 )
 
 func main() {
