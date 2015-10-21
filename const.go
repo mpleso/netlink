@@ -23,7 +23,7 @@ func flagStringer(n []string, x elib.Word) (s string) {
 	for x != 0 {
 		f := elib.FirstSet(x)
 		if len(s) > 0 {
-			s += " "
+			s += ", "
 		}
 		i := int(elib.MinLog2(f))
 		if i < len(n) && len(n[i]) > 0 {
@@ -236,6 +236,16 @@ const (
 	NLM_F_APPEND  HeaderFlags = 0x800 /* Add to end of list		*/
 )
 
+var headerFlagNames = []string{
+	0: "Request",
+	1: "Multipart",
+	2: "ACK",
+	3: "Echo",
+	4: "Interrupt",
+}
+
+func (x HeaderFlags) String() string { return flagStringer(headerFlagNames, elib.Word(x)) }
+
 const NLMSG_ALIGNTO = 4
 const RTA_ALIGNTO = 4
 
@@ -250,12 +260,6 @@ func attrAlignLen(l int) int {
 	return (l + RTA_ALIGNTO - 1) & ^(RTA_ALIGNTO - 1)
 }
 
-type RtGenmsg struct {
-	AddressFamily
-}
-
-const SizeofRtGenmsg = SizeofHeader + 1
-
 type NlAttr struct {
 	Len  uint16
 	Kind uint16
@@ -264,12 +268,12 @@ type NlAttr struct {
 const SizeofNlAttr = 4
 
 type IfInfomsg struct {
-	Family     uint8
-	X__ifi_pad uint8
-	Type       uint16
-	Index      int32
-	Flags      uint32
-	Change     uint32
+	Family uint8
+	_      uint8
+	Type   uint16
+	Index  int32
+	Flags  IfInfoFlags
+	Change IfInfoFlags
 }
 
 const SizeofIfInfomsg = 16
@@ -812,7 +816,29 @@ var l2IfTypeNames = []string{
 
 func (x L2IfType) String() string { return stringer(l2IfTypeNames, int(x)) }
 
-type IfInfoFlags int
+type IfInfoFlags uint32
+
+const (
+	IFF_UP IfInfoFlags = 1 << iota
+	IFF_BROADCAST
+	IFF_DEBUG
+	IFF_LOOPBACK
+	IFF_POINTOPOINT
+	IFF_NOTRAILERS
+	IFF_RUNNING
+	IFF_NOARP
+	IFF_PROMISC
+	IFF_ALLMULTI
+	IFF_MASTER
+	IFF_SLAVE
+	IFF_MULTICAST
+	IFF_PORTSEL
+	IFF_AUTOMEDIA
+	IFF_DYNAMIC
+	IFF_LOWER_UP
+	IFF_DORMANT
+	IFF_ECHO
+)
 
 var ifInfoFlagNames = []string{
 	"UP", "BROADCAST", "DEBUG", "LOOPBACK",
