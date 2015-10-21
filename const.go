@@ -5,9 +5,10 @@
 package netlink
 
 import (
-	"elib"
 	"fmt"
 	"net"
+
+	"github.com/platinasystems/elib"
 )
 
 func stringer(n []string, i int) string {

@@ -9,10 +9,11 @@ import (
 	"os"
 	"syscall"
 
-	"elib"
 	"encoding/hex"
 	"strconv"
 	"unsafe"
+
+	"github.com/platinasystems/elib"
 )
 
 type Socket struct {
