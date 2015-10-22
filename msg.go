@@ -33,7 +33,7 @@ func (n *Socket) reset_tx_buffer() {
 type Message interface {
 	netlinkMessage()
 	Parse(b []byte)
-	TxAdd(s *Socket, t MsgType, f HeaderFlags)
+	TxAdd(s *Socket)
 }
 
 func (h *Header) String() (s string) {
@@ -52,17 +52,23 @@ func (m *NoopMessage) netlinkMessage() {}
 func (m *NoopMessage) Parse(b []byte) {
 	*m = *(*NoopMessage)(unsafe.Pointer(&b[0]))
 }
-func (m *NoopMessage) String() string                            { return m.Header.String() }
-func (m *NoopMessage) TxAdd(s *Socket, t MsgType, f HeaderFlags) { s.TxAddReq(NLMSG_NOOP, 0, f) }
+func (m *NoopMessage) String() string { return m.Header.String() }
+func (m *NoopMessage) TxAdd(s *Socket) {
+	m.Header.Type = NLMSG_NOOP
+	s.TxAddReq(&m.Header, 0)
+}
 
 type DoneMessage struct {
 	Header Header
 }
 
-func (m *DoneMessage) netlinkMessage()                           {}
-func (m *DoneMessage) Parse(b []byte)                            { *m = *(*DoneMessage)(unsafe.Pointer(&b[0])) }
-func (m *DoneMessage) String() string                            { return m.Header.String() }
-func (m *DoneMessage) TxAdd(s *Socket, t MsgType, f HeaderFlags) { s.TxAddReq(NLMSG_DONE, 0, f) }
+func (m *DoneMessage) netlinkMessage() {}
+func (m *DoneMessage) Parse(b []byte)  { *m = *(*DoneMessage)(unsafe.Pointer(&b[0])) }
+func (m *DoneMessage) String() string  { return m.Header.String() }
+func (m *DoneMessage) TxAdd(s *Socket) {
+	m.Header.Type = NLMSG_NOOP
+	s.TxAddReq(&m.Header, 0)
+}
 
 type ErrorMessage struct {
 	Header Header
@@ -74,8 +80,9 @@ type ErrorMessage struct {
 
 func (m *ErrorMessage) netlinkMessage() {}
 func (m *ErrorMessage) Parse(b []byte)  { *m = *(*ErrorMessage)(unsafe.Pointer(&b[0])) }
-func (m *ErrorMessage) TxAdd(s *Socket, t MsgType, f HeaderFlags) {
-	b := s.TxAddReq(NLMSG_ERROR, 4+SizeofHeader, f)
+func (m *ErrorMessage) TxAdd(s *Socket) {
+	m.Header.Type = NLMSG_ERROR
+	b := s.TxAddReq(&m.Header, 4+SizeofHeader)
 	e := (*ErrorMessage)(unsafe.Pointer(&b[0]))
 	e.errno = m.errno
 	e.errorHeader = m.errorHeader
@@ -273,10 +280,10 @@ func (m *IfInfoMessage) Parse(b []byte) {
 	}
 }
 
-func (m *IfInfoMessage) TxAdd(s *Socket, t MsgType, f HeaderFlags) {
+func (m *IfInfoMessage) TxAdd(s *Socket) {
 	as := AttrVec(m.Attrs[:])
 	l := as.Size()
-	b := s.TxAddReq(t, SizeofIfInfomsg+l, f)
+	b := s.TxAddReq(&m.Header, SizeofIfInfomsg+l)
 	i := (*IfInfoMessage)(unsafe.Pointer(&b[0]))
 	i.IfInfomsg = m.IfInfomsg
 	as.Set(b[SizeofHeader+SizeofIfInfomsg:])
@@ -429,10 +436,10 @@ func (m *IfAddrMessage) Parse(b []byte) {
 	return
 }
 
-func (m *IfAddrMessage) TxAdd(s *Socket, t MsgType, f HeaderFlags) {
+func (m *IfAddrMessage) TxAdd(s *Socket) {
 	as := AttrVec(m.Attrs[:])
 	l := as.Size()
-	b := s.TxAddReq(t, SizeofIfAddrmsg+l, f)
+	b := s.TxAddReq(&m.Header, SizeofIfAddrmsg+l)
 	i := (*IfAddrMessage)(unsafe.Pointer(&b[0]))
 	i.IfAddrmsg = m.IfAddrmsg
 	as.Set(b[SizeofHeader+SizeofIfAddrmsg:])
@@ -489,10 +496,10 @@ func (m *RouteMessage) Parse(b []byte) {
 	return
 }
 
-func (m *RouteMessage) TxAdd(s *Socket, t MsgType, f HeaderFlags) {
+func (m *RouteMessage) TxAdd(s *Socket) {
 	as := AttrVec(m.Attrs[:])
 	l := as.Size()
-	b := s.TxAddReq(t, SizeofRtmsg+l, f)
+	b := s.TxAddReq(&m.Header, SizeofRtmsg+l)
 	i := (*RouteMessage)(unsafe.Pointer(&b[0]))
 	i.Rtmsg = m.Rtmsg
 	as.Set(b[SizeofHeader+SizeofRtmsg:])
@@ -544,10 +551,10 @@ func (m *NeighborMessage) Parse(b []byte) {
 	return
 }
 
-func (m *NeighborMessage) TxAdd(s *Socket, t MsgType, f HeaderFlags) {
+func (m *NeighborMessage) TxAdd(s *Socket) {
 	as := AttrVec(m.Attrs[:])
 	l := as.Size()
-	b := s.TxAddReq(t, SizeofNdmsg+l, f)
+	b := s.TxAddReq(&m.Header, SizeofNdmsg+l)
 	i := (*NeighborMessage)(unsafe.Pointer(&b[0]))
 	i.Ndmsg = m.Ndmsg
 	as.Set(b[SizeofHeader+SizeofNdmsg:])
@@ -555,20 +562,29 @@ func (m *NeighborMessage) TxAdd(s *Socket, t MsgType, f HeaderFlags) {
 
 // txAdd adds a both a nlmsghdr and a request header (e.g. ifinfomsg, ifaddrmsg, rtmsg, ...)
 //   to the end of the tx buffer.
-func (s *Socket) TxAddReq(t MsgType, nBytes int, f HeaderFlags) []byte {
+func (s *Socket) TxAddReq(header *Header, nBytes int) []byte {
 	i := len(s.tx_buffer)
 	s.tx_buffer.Resize(uint(messageAlignLen(nBytes) + SizeofHeader))
 	h := (*Header)(unsafe.Pointer(&s.tx_buffer[i]))
 	h.Len = uint32(nBytes + SizeofHeader)
-	h.Type = t
-	h.Flags = f | NLM_F_REQUEST
-	h.Sequence = uint32(s.tx_sequence_number)
+	h.Type = header.Type
+	h.Flags = header.Flags | NLM_F_REQUEST
 	h.Pid = s.pid
+
+	// Sequence 0 is reserved for unsolicited messages from kernel.
+	if s.tx_sequence_number == 0 {
+		s.tx_sequence_number = 1
+	}
+	h.Sequence = uint32(s.tx_sequence_number)
 	s.tx_sequence_number++
+
 	return s.tx_buffer[i:]
 }
 
-func (s *Socket) Tx() {
+func (s *Socket) TxAdd(m Message) { m.TxAdd(s) }
+
+func (s *Socket) Tx(m Message) {
+	s.TxAdd(m)
 	for i := 0; i < len(s.tx_buffer); {
 		n, err := syscall.Write(s.socket, s.tx_buffer[i:])
 		if err != nil {
@@ -593,8 +609,8 @@ func (m *GenMessage) Parse(b []byte) {
 	m.Header = p.Header
 	m.AddressFamily = p.AddressFamily
 }
-func (m *GenMessage) TxAdd(s *Socket, t MsgType, f HeaderFlags) {
-	b := s.TxAddReq(t, SizeofGenMessage, f)
+func (m *GenMessage) TxAdd(s *Socket) {
+	b := s.TxAddReq(&m.Header, SizeofGenMessage)
 	p := (*GenMessage)(unsafe.Pointer(&b[0]))
 	p.AddressFamily = m.AddressFamily
 }
@@ -655,39 +671,39 @@ func (n *Socket) Rx() {
 	}
 }
 
-func New() (n *Socket, err error) {
-	n = &Socket{}
+func New() (s *Socket, err error) {
+	s = &Socket{}
 
-	n.socket, err = syscall.Socket(syscall.AF_NETLINK, syscall.SOCK_RAW, syscall.NETLINK_ROUTE)
+	s.socket, err = syscall.Socket(syscall.AF_NETLINK, syscall.SOCK_RAW, syscall.NETLINK_ROUTE)
 	if err != nil {
 		err = os.NewSyscallError("socket", err)
 		return
 	}
 	defer func() {
-		if err != nil && n.socket > 0 {
-			syscall.Close(n.socket)
+		if err != nil && s.socket > 0 {
+			syscall.Close(s.socket)
 		}
 	}()
 
 	sa := &syscall.SockaddrNetlink{
 		Family: uint16(AF_NETLINK),
-		Pid:    n.pid,
+		Pid:    s.pid,
 		Groups: (1<<RTNLGRP_LINK | 1<<RTNLGRP_NEIGH |
 			1<<RTNLGRP_IPV4_IFADDR | 1<<RTNLGRP_IPV4_ROUTE | 1<<RTNLGRP_IPV4_MROUTE |
 			1<<RTNLGRP_IPV6_IFADDR | 1<<RTNLGRP_IPV6_ROUTE | 1<<RTNLGRP_IPV6_MROUTE),
 	}
 
-	if err = syscall.Bind(n.socket, sa); err != nil {
+	if err = syscall.Bind(s.socket, sa); err != nil {
 		err = os.NewSyscallError("bind", err)
 		return
 	}
 
 	// Increase socket buffering.
 	bytes := 128 << 10
-	if err = os.NewSyscallError("setsockopt SO_RCVBUF", syscall.SetsockoptInt(n.socket, syscall.SOL_SOCKET, syscall.SO_RCVBUF, bytes)); err != nil {
+	if err = os.NewSyscallError("setsockopt SO_RCVBUF", syscall.SetsockoptInt(s.socket, syscall.SOL_SOCKET, syscall.SO_RCVBUF, bytes)); err != nil {
 		return
 	}
-	if err = os.NewSyscallError("setsockopt SO_SNDBUF", syscall.SetsockoptInt(n.socket, syscall.SOL_SOCKET, syscall.SO_SNDBUF, bytes)); err != nil {
+	if err = os.NewSyscallError("setsockopt SO_SNDBUF", syscall.SetsockoptInt(s.socket, syscall.SOL_SOCKET, syscall.SO_SNDBUF, bytes)); err != nil {
 		return
 	}
 
@@ -704,10 +720,12 @@ func New() (n *Socket, err error) {
 		{RTM_GETROUTE, AF_INET6},
 	}
 	for _, r := range reqs {
-		m := &GenMessage{AddressFamily: r.AddressFamily}
-		m.TxAdd(n, r.MsgType, NLM_F_DUMP)
-		n.Tx()
-		n.Rx()
+		m := &GenMessage{}
+		m.Type = r.MsgType
+		m.Flags = NLM_F_DUMP
+		m.AddressFamily = r.AddressFamily
+		s.Tx(m)
+		s.Rx()
 	}
 
 	return
