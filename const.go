@@ -860,11 +860,11 @@ const (
 )
 
 var ifInfoFlagNames = []string{
-	"UP", "BROADCAST", "DEBUG", "LOOPBACK",
-	"POINTOPOINT", "NOTRAILERS", "RUNNING", "NOARP",
-	"PROMISC", "ALLMULTI", "MASTER", "SLAVE",
-	"MULTICAST", "PORTSEL", "AUTOMEDIA", "DYNAMIC",
-	"LOWER_UP", "DORMANT", "ECHO",
+	"Admin Up", "Broadcast", "Debug", "Loopback",
+	"Point To Point", "No Trailers", "Running", "NO ARP",
+	"Promiscuous", "All Multicast", "Master", "Slave",
+	"Multicast", "Portsel", "Automedia", "Dynamic",
+	"Link Up", "Dormant", "Echo",
 }
 
 func (x IfInfoFlags) String() string { return flagStringer(ifInfoFlagNames, elib.Word(x)) }
