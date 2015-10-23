@@ -1,15 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"github.com/platinasystems/netlink"
 )
 
 func main() {
-	n, err := netlink.New()
+	rx := make(chan netlink.Message, 64)
+	s, err := netlink.New(rx)
 	if err != nil {
 		panic(err)
 	}
+	go s.Listen()
 	for {
-		n.Rx()
+		m := <-rx
+		fmt.Printf("%v\n", m)
 	}
 }
