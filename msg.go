@@ -22,6 +22,7 @@ type Socket struct {
 	tx_sequence_number uint
 	tx_buffer          elib.ByteVec
 	rx_buffer          elib.ByteVec
+	rx_chan            chan Message
 }
 
 func (n *Socket) reset_tx_buffer() {
@@ -622,58 +623,69 @@ func nextAttr(b []byte, i int) (n *NlAttr, v []byte, j int) {
 	return
 }
 
-func (n *Socket) Rx() {
-	i := len(n.rx_buffer)
-	n.rx_buffer.Resize(4096)
-	m, err := syscall.Read(n.socket, n.rx_buffer[i:])
+func (s *Socket) fillRxBuffer() {
+	i := len(s.rx_buffer)
+	s.rx_buffer.Resize(4096)
+	m, err := syscall.Read(s.socket, s.rx_buffer[i:])
 	if err != nil {
 		panic(err)
 	}
-	n.rx_buffer = n.rx_buffer[:i+m]
+	s.rx_buffer = s.rx_buffer[:i+m]
+}
 
-	i = 0
-	for i+SizeofHeader <= len(n.rx_buffer) {
-		h := (*Header)(unsafe.Pointer(&n.rx_buffer[i]))
+func (s *Socket) rxDispatch(h *Header, msg []byte) {
+	var m Message
+	switch h.Type {
+	case NLMSG_NOOP:
+		m = &NoopMessage{}
+	case NLMSG_ERROR:
+		m = &ErrorMessage{}
+	case NLMSG_DONE:
+		m = &DoneMessage{}
+	case RTM_NEWLINK, RTM_DELLINK, RTM_GETLINK, RTM_SETLINK:
+		m = &IfInfoMessage{}
+	case RTM_NEWADDR, RTM_DELADDR, RTM_GETADDR:
+		m = &IfAddrMessage{}
+	case RTM_NEWROUTE, RTM_DELROUTE, RTM_GETROUTE:
+		m = &RouteMessage{}
+	case RTM_NEWNEIGH, RTM_DELNEIGH, RTM_GETNEIGH:
+		m = &NeighborMessage{}
+	default:
+		panic("unhandled message " + h.Type.String())
+	}
+	m.Parse(msg)
+	s.rx_chan <- m
+}
 
+func (s *Socket) Rx() (done bool) {
+	s.fillRxBuffer()
+	for i := 0; i+SizeofHeader <= len(s.rx_buffer); {
+		h := (*Header)(unsafe.Pointer(&s.rx_buffer[i]))
 		l := messageAlignLen(int(h.Len))
-		if i+l > len(n.rx_buffer) {
+		if i+l > len(s.rx_buffer) {
+			if i == len(s.rx_buffer) {
+				s.rx_buffer = s.rx_buffer[:0]
+			} else {
+				copy(s.rx_buffer[:], s.rx_buffer[i:])
+			}
 			break
 		}
-		msg := n.rx_buffer[i : i+int(h.Len)]
-		i += l
 
-		var m Message
-		switch h.Type {
-		case NLMSG_NOOP:
-			m = &NoopMessage{}
-		case NLMSG_ERROR:
-			m = &ErrorMessage{}
-		case NLMSG_DONE:
-			m = &DoneMessage{}
-		case RTM_NEWLINK, RTM_DELLINK, RTM_GETLINK, RTM_SETLINK:
-			m = &IfInfoMessage{}
-		case RTM_NEWADDR, RTM_DELADDR, RTM_GETADDR:
-			m = &IfAddrMessage{}
-		case RTM_NEWROUTE, RTM_DELROUTE, RTM_GETROUTE:
-			m = &RouteMessage{}
-		case RTM_NEWNEIGH, RTM_DELNEIGH, RTM_GETNEIGH:
-			m = &NeighborMessage{}
-		default:
-			panic("unhandled message " + h.Type.String())
-		}
-		m.Parse(msg)
-		fmt.Printf("%s\n", m)
+		done = h.Type == NLMSG_DONE
+		msg := s.rx_buffer[i : i+int(h.Len)]
+		s.rxDispatch(h, msg)
+		i += l
 	}
-	if i == len(n.rx_buffer) {
-		n.rx_buffer = n.rx_buffer[:0]
-	} else {
-		copy(n.rx_buffer[:], n.rx_buffer[i:])
+	return
+}
+
+func (s *Socket) rxUntilDone() {
+	for !s.Rx() {
 	}
 }
 
-func New() (s *Socket, err error) {
-	s = &Socket{}
-
+func New(rx chan Message) (s *Socket, err error) {
+	s = &Socket{rx_chan: rx}
 	s.socket, err = syscall.Socket(syscall.AF_NETLINK, syscall.SOCK_RAW, syscall.NETLINK_ROUTE)
 	if err != nil {
 		err = os.NewSyscallError("socket", err)
@@ -706,7 +718,10 @@ func New() (s *Socket, err error) {
 	if err = os.NewSyscallError("setsockopt SO_SNDBUF", syscall.SetsockoptInt(s.socket, syscall.SOL_SOCKET, syscall.SO_SNDBUF, bytes)); err != nil {
 		return
 	}
+	return
+}
 
+func (s *Socket) Listen() {
 	reqs := []struct {
 		MsgType
 		AddressFamily
@@ -725,8 +740,10 @@ func New() (s *Socket, err error) {
 		m.Flags = NLM_F_DUMP
 		m.AddressFamily = r.AddressFamily
 		s.Tx(m)
-		s.Rx()
+		s.rxUntilDone()
 	}
 
-	return
+	for {
+		s.Rx()
+	}
 }
