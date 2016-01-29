@@ -109,7 +109,8 @@ type AttrType interface {
 	String(i int) string
 }
 
-//go:generate gentemplate -d Package=netlink -id Attr  -d Type=Attr elib/vec.tmpl
+//go:generate go build github.com/platinasystems/elib/gentemplate
+//go:generate ./gentemplate -d Package=netlink -id Attr -d Type=Attr github.com/platinasystems/elib/vec.tmpl
 
 type stringAttr string
 type hexStringAttr []byte
