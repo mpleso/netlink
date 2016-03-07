@@ -545,7 +545,8 @@ func (x NeighborFlags) String() string { return flagStringer(neighborFlagNames, 
 type NeighborState int
 
 const (
-	NUD_INCOMPLETE NeighborState = iota
+	_ NeighborState = iota
+	NUD_INCOMPLETE
 	NUD_REACHABLE
 	NUD_STALE
 	NUD_DELAY
@@ -555,7 +556,7 @@ const (
 	NUD_PERMANENT
 )
 
-var neighborStateNames = []string{
+var neighborStateNames = map[NeighborState]string{
 	NUD_INCOMPLETE: "INCOMPLETE",
 	NUD_REACHABLE:  "REACHABLE",
 	NUD_STALE:      "STALE",
@@ -566,7 +567,7 @@ var neighborStateNames = []string{
 	NUD_PERMANENT:  "PERMANENT",
 }
 
-func (x NeighborState) String() string { return flagStringer(neighborStateNames, elib.Word(x)) }
+func (x NeighborState) String() string { return neighborStateNames[x] }
 
 type AddressFamily uint8
 
