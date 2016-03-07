@@ -669,25 +669,32 @@ type AddressFamilyAddress interface {
 	String([]byte) string
 }
 
+type Byter interface {
+	Bytes() []byte
+}
+
 type ip4Address [4]byte
 type ip6Address [16]byte
 type ethernetAddress [6]byte
 
-func (a *ip4Address) attr()        {}
-func (a *ip4Address) Size() int    { return len(a) }
-func (a *ip4Address) Set(v []byte) { copy(v, a[:]) }
+func (a *ip4Address) attr()         {}
+func (a *ip4Address) Bytes() []byte { return a[:] }
+func (a *ip4Address) Size() int     { return len(a) }
+func (a *ip4Address) Set(v []byte)  { copy(v, a[:]) }
 func (a *ip4Address) String() string {
 	return fmt.Sprintf("%d.%d.%d.%d", a[0], a[1], a[2], a[3])
 }
-func (a *ip6Address) attr()        {}
-func (a *ip6Address) Size() int    { return len(a) }
-func (a *ip6Address) Set(v []byte) { copy(v, a[:]) }
+func (a *ip6Address) attr()         {}
+func (a *ip6Address) Bytes() []byte { return a[:] }
+func (a *ip6Address) Size() int     { return len(a) }
+func (a *ip6Address) Set(v []byte)  { copy(v, a[:]) }
 func (a *ip6Address) String() string {
 	return net.IP(a[:]).String()
 }
-func (a *ethernetAddress) attr()        {}
-func (a *ethernetAddress) Size() int    { return len(a) }
-func (a *ethernetAddress) Set(v []byte) { copy(v, a[:]) }
+func (a *ethernetAddress) attr()         {}
+func (a *ethernetAddress) Bytes() []byte { return a[:] }
+func (a *ethernetAddress) Size() int     { return len(a) }
+func (a *ethernetAddress) Set(v []byte)  { copy(v, a[:]) }
 func (a *ethernetAddress) String() string {
 	return fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x", a[0], a[1], a[2], a[3], a[4], a[5])
 }

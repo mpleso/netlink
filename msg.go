@@ -515,6 +515,10 @@ type NeighborMessage struct {
 
 func (m *NeighborMessage) netlinkMessage() {}
 
+func (m *NeighborMessage) AttrBytes(kind NeighborAttrKind) []byte {
+	return m.Attrs[kind].(Byter).Bytes()
+}
+
 func (m *NeighborMessage) String() string {
 	s := m.Header.String()
 	s += fmt.Sprintf(" Index: %d, Family: %s, Type %s, State %s",
