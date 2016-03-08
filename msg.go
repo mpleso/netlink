@@ -23,6 +23,7 @@ type Socket struct {
 	tx_buffer          elib.ByteVec
 	rx_buffer          elib.ByteVec
 	rx_chan            chan Message
+	quit_chan          chan struct{}
 }
 
 func (n *Socket) reset_tx_buffer() {
@@ -690,7 +691,10 @@ func (s *Socket) rxUntilDone() {
 }
 
 func New(rx chan Message) (s *Socket, err error) {
-	s = &Socket{rx_chan: rx}
+	s = &Socket{
+		rx_chan:   rx,
+		quit_chan: make(chan struct{}),
+	}
 	s.socket, err = syscall.Socket(syscall.AF_NETLINK, syscall.SOCK_RAW, syscall.NETLINK_ROUTE)
 	if err != nil {
 		err = os.NewSyscallError("socket", err)
@@ -726,6 +730,11 @@ func New(rx chan Message) (s *Socket, err error) {
 	return
 }
 
+func (s *Socket) Close() error {
+	close(s.quit_chan)
+	return nil
+}
+
 func (s *Socket) Listen() {
 	reqs := []struct {
 		MsgType
@@ -749,6 +758,14 @@ func (s *Socket) Listen() {
 	}
 
 	for {
-		s.Rx()
+		select {
+		case _, _ = <-s.quit_chan:
+			syscall.Close(s.socket)
+			s.socket = -1
+			close(s.rx_chan)
+			return
+		default:
+		}
+		s.rx()
 	}
 }
