@@ -11,32 +11,6 @@ import (
 	"github.com/platinasystems/elib"
 )
 
-func stringer(n []string, i int) string {
-	if i < len(n) && len(n[i]) > 0 {
-		return n[i]
-	} else {
-		return fmt.Sprintf("%d", i)
-	}
-}
-
-func flagStringer(n []string, x elib.Word) (s string) {
-	s = ""
-	for x != 0 {
-		f := elib.FirstSet(x)
-		if len(s) > 0 {
-			s += ", "
-		}
-		i := int(elib.MinLog2(f))
-		if i < len(n) && len(n[i]) > 0 {
-			s += n[i]
-		} else {
-			s += fmt.Sprintf("%d", i)
-		}
-		x ^= f
-	}
-	return
-}
-
 type Header struct {
 	Len      uint32
 	Type     MsgType
@@ -179,7 +153,7 @@ var msgTypeNames = []string{
 	RTM_GETNSID:      "RTM_GETNSID",
 }
 
-func (x MsgType) String() string { return stringer(msgTypeNames, int(x)) }
+func (x MsgType) String() string { return elib.Stringer(msgTypeNames, int(x)) }
 
 type MulticastGroup uint32
 
@@ -245,7 +219,7 @@ var headerFlagNames = []string{
 	4: "Interrupt",
 }
 
-func (x HeaderFlags) String() string { return flagStringer(headerFlagNames, elib.Word(x)) }
+func (x HeaderFlags) String() string { return elib.FlagStringer(headerFlagNames, elib.Word(x)) }
 
 const NLMSG_ALIGNTO = 4
 const RTA_ALIGNTO = 4
@@ -307,7 +281,7 @@ var scopeNames = []string{
 	ScopeNowhere:  "Nowhere",
 }
 
-func (s Scope) String() string { return stringer(scopeNames, int(s)) }
+func (s Scope) String() string { return elib.Stringer(scopeNames, int(s)) }
 
 type Rtmsg struct {
 	Family   uint8
@@ -355,7 +329,7 @@ var routeTypeNames = []string{
 	RTN_XRESOLVE:    "XRESOLVE",
 }
 
-func (s RouteType) String() string { return stringer(routeTypeNames, int(s)) }
+func (s RouteType) String() string { return elib.Stringer(routeTypeNames, int(s)) }
 
 type RouteProtocol uint8
 
@@ -405,7 +379,7 @@ var routeProtocolNames = []string{
 	RTPROT_BABEL:    "BABEL",
 }
 
-func (x RouteProtocol) String() string { return stringer(routeProtocolNames, int(x)) }
+func (x RouteProtocol) String() string { return elib.Stringer(routeProtocolNames, int(x)) }
 
 type RouteFlags uint32
 
@@ -423,7 +397,7 @@ var routeFlagNames = []string{
 	11: "Prefix",
 }
 
-func (x RouteFlags) String() string { return flagStringer(routeFlagNames, elib.Word(x)) }
+func (x RouteFlags) String() string { return elib.FlagStringer(routeFlagNames, elib.Word(x)) }
 
 type RouteAttrKind int
 
@@ -475,7 +449,7 @@ var routeAttrKindNames = []string{
 	RTA_MFC_STATS: "MFC_STATS",
 }
 
-func (x RouteAttrKind) String() string { return stringer(routeAttrKindNames, int(x)) }
+func (x RouteAttrKind) String() string { return elib.Stringer(routeAttrKindNames, int(x)) }
 
 type Ndmsg struct {
 	Family uint8
@@ -518,7 +492,7 @@ var neighborAttrKindNames = []string{
 	NDA_MASTER:    "NDA_MASTER",
 }
 
-func (x NeighborAttrKind) String() string { return stringer(neighborAttrKindNames, int(x)) }
+func (x NeighborAttrKind) String() string { return elib.Stringer(neighborAttrKindNames, int(x)) }
 
 type NeighborFlags int
 
@@ -540,7 +514,7 @@ var neighborFlagNames = []string{
 	NTF_ROUTER:      "ROUTER",
 }
 
-func (x NeighborFlags) String() string { return flagStringer(neighborFlagNames, elib.Word(x)) }
+func (x NeighborFlags) String() string { return elib.FlagStringer(neighborFlagNames, elib.Word(x)) }
 
 type NeighborState int
 
@@ -556,7 +530,7 @@ const (
 	NUD_PERMANENT
 )
 
-var neighborStateNames = map[NeighborState]string{
+var neighborStateNames = []string{
 	NUD_INCOMPLETE: "INCOMPLETE",
 	NUD_REACHABLE:  "REACHABLE",
 	NUD_STALE:      "STALE",
@@ -567,7 +541,7 @@ var neighborStateNames = map[NeighborState]string{
 	NUD_PERMANENT:  "PERMANENT",
 }
 
-func (x NeighborState) String() string { return neighborStateNames[x] }
+func (x NeighborState) String() string { return elib.FlagStringer(neighborStateNames, elib.Word(x)) }
 
 type AddressFamily uint8
 
@@ -659,11 +633,11 @@ var afNames = []string{
 	AF_VSOCK:      "VSOCK",
 }
 
-func (af AddressFamily) String() string { return stringer(afNames, int(af)) }
+func (af AddressFamily) String() string { return elib.Stringer(afNames, int(af)) }
 
 type AddressFamilyAttrType struct{}
 
-func (t *AddressFamilyAttrType) String(i int) string { return stringer(afNames, i) }
+func (t *AddressFamilyAttrType) String(i int) string { return elib.Stringer(afNames, i) }
 func (t *AddressFamilyAttrType) attrType()           {}
 
 type AddressFamilyAddress interface {
@@ -841,7 +815,7 @@ var l2IfTypeNames = []string{
 	ARPHRD_IEEE802154_PHY:     "IEEE802154_PHY",
 }
 
-func (x L2IfType) String() string { return stringer(l2IfTypeNames, int(x)) }
+func (x L2IfType) String() string { return elib.Stringer(l2IfTypeNames, int(x)) }
 
 type IfInfoFlags uint32
 
@@ -875,7 +849,7 @@ var ifInfoFlagNames = []string{
 	"Link Up", "Dormant", "Echo",
 }
 
-func (x IfInfoFlags) String() string { return flagStringer(ifInfoFlagNames, elib.Word(x)) }
+func (x IfInfoFlags) String() string { return elib.FlagStringer(ifInfoFlagNames, elib.Word(x)) }
 
 type IfAddrFlags int
 
@@ -885,7 +859,7 @@ var ifAddrFlagNames = []string{
 	"MANAGETEMPADDR", "NO_PREFIX_ROUTE", "MC_AUTO_JOIN", "STABLE_PRIVACY",
 }
 
-func (x IfAddrFlags) String() string { return flagStringer(ifAddrFlagNames, elib.Word(x)) }
+func (x IfAddrFlags) String() string { return elib.FlagStringer(ifAddrFlagNames, elib.Word(x)) }
 
 type MessageType int
 
@@ -1059,8 +1033,8 @@ var ifAddrAttrKindNames = []string{
 	IFA_FLAGS:     "FLAGS",
 }
 
-func (t IfInfoAttrKind) String() string { return stringer(ifInfoAttrKindNames, int(t)) }
-func (t IfAddrAttrKind) String() string { return stringer(ifAddrAttrKindNames, int(t)) }
+func (t IfInfoAttrKind) String() string { return elib.Stringer(ifInfoAttrKindNames, int(t)) }
+func (t IfAddrAttrKind) String() string { return elib.Stringer(ifAddrAttrKindNames, int(t)) }
 
 type IfAddrCacheInfo struct {
 	Prefered         uint32
@@ -1120,12 +1094,12 @@ type Ip6IfAttrKind int
 type Ip4IfAttrType struct{}
 type Ip6IfAttrType struct{}
 
-func (t Ip4IfAttrKind) String() string { return stringer(ip4IfAttrTypeNames, int(t)) }
-func (t Ip6IfAttrKind) String() string { return stringer(ip6IfAttrTypeNames, int(t)) }
+func (t Ip4IfAttrKind) String() string { return elib.Stringer(ip4IfAttrTypeNames, int(t)) }
+func (t Ip6IfAttrKind) String() string { return elib.Stringer(ip6IfAttrTypeNames, int(t)) }
 
-func (t *Ip4IfAttrType) String(i int) string { return stringer(ip4IfAttrTypeNames, i) }
+func (t *Ip4IfAttrType) String(i int) string { return elib.Stringer(ip4IfAttrTypeNames, i) }
 func (t *Ip4IfAttrType) attrType()           {}
-func (t *Ip6IfAttrType) String(i int) string { return stringer(ip6IfAttrTypeNames, i) }
+func (t *Ip6IfAttrType) String(i int) string { return elib.Stringer(ip6IfAttrTypeNames, i) }
 func (t *Ip6IfAttrType) attrType()           {}
 
 type Ip4DevConfKind int
@@ -1285,12 +1259,12 @@ var ip6DevConfKindNames = []string{
 	IPV6_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN:       "Ignore Routes With Linkdown",
 }
 
-func (t Ip4DevConfKind) String() string { return stringer(ip4DevConfKindNames, int(t)) }
-func (t Ip6DevConfKind) String() string { return stringer(ip6DevConfKindNames, int(t)) }
+func (t Ip4DevConfKind) String() string { return elib.Stringer(ip4DevConfKindNames, int(t)) }
+func (t Ip6DevConfKind) String() string { return elib.Stringer(ip6DevConfKindNames, int(t)) }
 
-func (t *Ip4DevConfType) String(i int) string { return stringer(ip4DevConfKindNames, i) }
+func (t *Ip4DevConfType) String(i int) string { return elib.Stringer(ip4DevConfKindNames, i) }
 func (t *Ip4DevConfType) attrType()           {}
-func (t *Ip6DevConfType) String(i int) string { return stringer(ip6DevConfKindNames, i) }
+func (t *Ip6DevConfType) String(i int) string { return elib.Stringer(ip6DevConfKindNames, i) }
 func (t *Ip6DevConfType) attrType()           {}
 
 type LinkStatType int
