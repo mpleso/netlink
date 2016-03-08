@@ -6,6 +6,7 @@ package netlink
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"syscall"
 
@@ -663,7 +664,16 @@ func (s *Socket) rxDispatch(h *Header, msg []byte) {
 	s.rx_chan <- m
 }
 
-func (s *Socket) Rx() (done bool) {
+func (s *Socket) Rx() (Message, error) {
+	var err error
+	msg, opened := <-s.rx_chan
+	if !opened {
+		err = io.EOF
+	}
+	return msg, err
+}
+
+func (s *Socket) rx() (done bool) {
 	s.fillRxBuffer()
 	for i := 0; i+SizeofHeader <= len(s.rx_buffer); {
 		h := (*Header)(unsafe.Pointer(&s.rx_buffer[i]))
@@ -686,7 +696,7 @@ func (s *Socket) Rx() (done bool) {
 }
 
 func (s *Socket) rxUntilDone() {
-	for !s.Rx() {
+	for !s.rx() {
 	}
 }
 
