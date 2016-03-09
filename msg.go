@@ -745,18 +745,24 @@ func (s *Socket) Close() error {
 	return nil
 }
 
-func (s *Socket) Listen() {
-	reqs := []struct {
-		MsgType
-		AddressFamily
-	}{
-		{RTM_GETLINK, AF_PACKET},
-		{RTM_GETADDR, AF_INET},
-		{RTM_GETROUTE, AF_INET},
-		{RTM_GETNEIGH, AF_INET},
-		{RTM_GETADDR, AF_INET6},
-		{RTM_GETNEIGH, AF_INET6},
-		{RTM_GETROUTE, AF_INET6},
+type ListenReq struct {
+	MsgType
+	AddressFamily
+}
+
+var DefaultListenReqs = []ListenReq{
+	{RTM_GETLINK, AF_PACKET},
+	{RTM_GETADDR, AF_INET},
+	{RTM_GETROUTE, AF_INET},
+	{RTM_GETNEIGH, AF_INET},
+	{RTM_GETADDR, AF_INET6},
+	{RTM_GETNEIGH, AF_INET6},
+	{RTM_GETROUTE, AF_INET6},
+}
+
+func (s *Socket) Listen(reqs ...ListenReq) {
+	if len(reqs) == 0 {
+		reqs = DefaultListenReqs
 	}
 	for _, r := range reqs {
 		m := &GenMessage{}
