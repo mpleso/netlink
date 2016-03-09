@@ -76,9 +76,9 @@ func (m *DoneMessage) TxAdd(s *Socket) {
 type ErrorMessage struct {
 	Header Header
 	// Unix errno for error.
-	errno int32
+	Errno int32
 	// Header for message with error.
-	errorHeader Header
+	Req Header
 }
 
 func (m *ErrorMessage) netlinkMessage() {}
@@ -87,13 +87,14 @@ func (m *ErrorMessage) TxAdd(s *Socket) {
 	m.Header.Type = NLMSG_ERROR
 	b := s.TxAddReq(&m.Header, 4+SizeofHeader)
 	e := (*ErrorMessage)(unsafe.Pointer(&b[0]))
-	e.errno = m.errno
-	e.errorHeader = m.errorHeader
+	e.Errno = m.Errno
+	e.Req = m.Req
 }
 
 func (m *ErrorMessage) String() string {
 	s := m.Header.String()
-	s += fmt.Sprintf(": %s, failed header: %s", syscall.Errno(-m.errno), m.errorHeader.String())
+	s += fmt.Sprintf(": %s, failed header: %s", syscall.Errno(-m.Errno),
+		m.Req.String())
 	return s
 }
 
