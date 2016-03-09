@@ -579,12 +579,14 @@ func (s *Socket) TxAddReq(header *Header, nBytes int) []byte {
 	h.Type = header.Type
 	h.Flags = header.Flags | NLM_F_REQUEST
 	h.Pid = s.pid
+	header.Pid = s.pid
 
 	// Sequence 0 is reserved for unsolicited messages from kernel.
 	if s.tx_sequence_number == 0 {
 		s.tx_sequence_number = 1
 	}
 	h.Sequence = uint32(s.tx_sequence_number)
+	header.Sequence = uint32(s.tx_sequence_number)
 	s.tx_sequence_number++
 
 	return s.tx_buffer[i:]
