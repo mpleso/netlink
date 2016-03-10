@@ -596,6 +596,10 @@ func (s *Socket) TxAdd(m Message) { m.TxAdd(s) }
 
 func (s *Socket) Tx(m Message) {
 	s.TxAdd(m)
+	s.TxFlush()
+}
+
+func (s *Socket) TxFlush() {
 	for i := 0; i < len(s.tx_buffer); {
 		n, err := syscall.Write(s.socket, s.tx_buffer[i:])
 		if err != nil {
