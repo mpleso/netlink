@@ -703,7 +703,18 @@ func (s *Socket) rxUntilDone() {
 	}
 }
 
-func New(rx chan Message) (s *Socket, err error) {
+var DefaultGroups = []MulticastGroup{
+	RTNLGRP_LINK,
+	RTNLGRP_NEIGH,
+	RTNLGRP_IPV4_IFADDR,
+	RTNLGRP_IPV4_ROUTE,
+	RTNLGRP_IPV4_MROUTE,
+	RTNLGRP_IPV6_IFADDR,
+	RTNLGRP_IPV6_ROUTE,
+	RTNLGRP_IPV6_MROUTE,
+}
+
+func New(rx chan Message, groups ...MulticastGroup) (s *Socket, err error) {
 	s = &Socket{
 		rx_chan:   rx,
 		quit_chan: make(chan struct{}),
@@ -719,12 +730,18 @@ func New(rx chan Message) (s *Socket, err error) {
 		}
 	}()
 
+	var groupbits uint32
+	if len(groups) == 0 {
+		groups = DefaultGroups
+	}
+	for _, group := range groups {
+		groupbits |= 1 << group
+	}
+
 	sa := &syscall.SockaddrNetlink{
 		Family: uint16(AF_NETLINK),
 		Pid:    s.pid,
-		Groups: (1<<RTNLGRP_LINK | 1<<RTNLGRP_NEIGH |
-			1<<RTNLGRP_IPV4_IFADDR | 1<<RTNLGRP_IPV4_ROUTE | 1<<RTNLGRP_IPV4_MROUTE |
-			1<<RTNLGRP_IPV6_IFADDR | 1<<RTNLGRP_IPV6_ROUTE | 1<<RTNLGRP_IPV6_MROUTE),
+		Groups: groupbits,
 	}
 
 	if err = syscall.Bind(s.socket, sa); err != nil {
