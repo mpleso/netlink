@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"syscall"
 
 	"encoding/hex"
@@ -25,6 +26,8 @@ type Socket struct {
 	rx_buffer          elib.ByteVec
 	rx_chan            chan Message
 	quit_chan          chan struct{}
+	sync.Mutex
+	rsvp map[uint32]chan *ErrorMessage
 }
 
 func (n *Socket) reset_tx_buffer() {
@@ -599,6 +602,32 @@ func (s *Socket) Tx(m Message) {
 	s.TxFlush()
 }
 
+func (s *Socket) Rsvp(m Message) chan *ErrorMessage {
+	var hp *Header
+	s.Lock()
+	defer s.Unlock()
+	ch := make(chan *ErrorMessage, 1)
+	switch t := m.(type) {
+	case *IfInfoMessage:
+		hp = &t.Header
+	case *IfAddrMessage:
+		hp = &t.Header
+	case *RouteMessage:
+		hp = &t.Header
+	case *NeighborMessage:
+		hp = &t.Header
+	default:
+		panic("unsupported netlink message type")
+	}
+	s.TxAdd(m)
+	if s.rsvp == nil {
+		s.rsvp = make(map[uint32]chan *ErrorMessage)
+	}
+	s.rsvp[hp.Sequence] = ch
+	s.TxFlush()
+	return ch
+}
+
 func (s *Socket) TxFlush() {
 	for i := 0; i < len(s.tx_buffer); {
 		n, err := syscall.Write(s.socket, s.tx_buffer[i:])
@@ -649,11 +678,13 @@ func (s *Socket) fillRxBuffer() {
 
 func (s *Socket) rxDispatch(h *Header, msg []byte) {
 	var m Message
+	var errMsg *ErrorMessage
 	switch h.Type {
 	case NLMSG_NOOP:
 		m = &NoopMessage{}
 	case NLMSG_ERROR:
-		m = &ErrorMessage{}
+		errMsg = &ErrorMessage{}
+		m = errMsg
 	case NLMSG_DONE:
 		m = &DoneMessage{}
 	case RTM_NEWLINK, RTM_DELLINK, RTM_GETLINK, RTM_SETLINK:
@@ -668,16 +699,31 @@ func (s *Socket) rxDispatch(h *Header, msg []byte) {
 		panic("unhandled message " + h.Type.String())
 	}
 	m.Parse(msg)
-	s.rx_chan <- m
+	if errMsg != nil && errMsg.Req.Pid == s.pid {
+		s.Lock()
+		defer s.Unlock()
+		if s.rsvp != nil {
+			ch, found := s.rsvp[errMsg.Req.Sequence]
+			if found {
+				ch <- errMsg
+				close(ch)
+				delete(s.rsvp, errMsg.Req.Sequence)
+				return
+			}
+		}
+	}
+	if s.rx_chan != nil {
+		s.rx_chan <- m
+	}
 }
 
 func (s *Socket) Rx() (Message, error) {
-	var err error
-	msg, opened := <-s.rx_chan
-	if !opened {
-		err = io.EOF
+	if s.rx_chan != nil {
+		if msg, opened := <-s.rx_chan; opened {
+			return msg, nil
+		}
 	}
-	return msg, err
+	return nil, io.EOF
 }
 
 func (s *Socket) rx() (done bool) {
@@ -766,6 +812,13 @@ func New(rx chan Message, groups ...MulticastGroup) (s *Socket, err error) {
 
 func (s *Socket) Close() error {
 	close(s.quit_chan)
+	s.Lock()
+	defer s.Unlock()
+	for k, ch := range s.rsvp {
+		close(ch)
+		delete(s.rsvp, k)
+	}
+	s.rsvp = nil
 	return nil
 }
 
@@ -799,10 +852,12 @@ func (s *Socket) Listen(reqs ...ListenReq) {
 
 	for {
 		select {
-		case _, _ = <-s.quit_chan:
+		case _ = <-s.quit_chan:
 			syscall.Close(s.socket)
 			s.socket = -1
 			close(s.rx_chan)
+			s.rx_chan = nil
+			s.quit_chan = nil
 			return
 		default:
 		}
