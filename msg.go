@@ -267,7 +267,7 @@ func (m *IfInfoMessage) Parse(b []byte) {
 	for i := 0; i < len(b); {
 		n, v, next_i := nextAttr(b, i)
 		i = next_i
-		switch IfInfoAttrKind(n.Kind) {
+		switch t := IfInfoAttrKind(n.Kind); t {
 		case IFLA_IFNAME, IFLA_QDISC:
 			m.Attrs[n.Kind] = stringAttr(string(v[:len(v)-1]))
 		case IFLA_NUM_RX_QUEUES, IFLA_NUM_TX_QUEUES, IFLA_PORT_SELF, IFLA_MTU, IFLA_TXQLEN, IFLA_PROMISCUITY, IFLA_GROUP, IFLA_CARRIER_CHANGES:
@@ -283,7 +283,11 @@ func (m *IfInfoMessage) Parse(b []byte) {
 		case IFLA_ADDRESS, IFLA_BROADCAST:
 			m.Attrs[n.Kind] = afAddr(AF_UNSPEC, v)
 		default:
-			m.Attrs[n.Kind] = hexStringAttr(v)
+			if t < IFLA_MAX {
+				m.Attrs[n.Kind] = hexStringAttr(v)
+			} else {
+				panic(fmt.Errorf("%#v: unknown attr", n.Kind))
+			}
 		}
 	}
 }
