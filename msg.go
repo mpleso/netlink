@@ -194,17 +194,17 @@ func (a AttrArray) String() string {
 	return s
 }
 
-type LinkStats [n_link_stat]uint32
-type LinkStats64 [n_link_stat]uint64
+type LinkStats [N_link_stat]uint32
+type LinkStats64 [N_link_stat]uint64
 
 func (a *LinkStats) attr()        {}
-func (a *LinkStats) Size() int    { return int(n_link_stat) * 4 }
+func (a *LinkStats) Size() int    { return int(N_link_stat) * 4 }
 func (a *LinkStats) Set(v []byte) { *(*LinkStats)(unsafe.Pointer(&v[0])) = *a }
 func (a *LinkStats) String() string {
 	s := ""
 	for i := range a {
 		t := LinkStatType(i)
-		if a[t] != 0 || t == rx_packets || t == tx_packets {
+		if a[t] != 0 || t == Rx_packets || t == Tx_packets {
 			if len(s) > 0 {
 				s += ", "
 			}
@@ -215,13 +215,13 @@ func (a *LinkStats) String() string {
 }
 
 func (a *LinkStats64) attr()        {}
-func (a *LinkStats64) Size() int    { return int(n_link_stat) * 8 }
+func (a *LinkStats64) Size() int    { return int(N_link_stat) * 8 }
 func (a *LinkStats64) Set(v []byte) { *(*LinkStats64)(unsafe.Pointer(&v[0])) = *a }
 func (a *LinkStats64) String() string {
 	s := ""
 	for i := range a {
 		t := LinkStatType(i)
-		if a[t] != 0 || t == rx_packets || t == tx_packets {
+		if a[t] != 0 || t == Rx_packets || t == Tx_packets {
 			if len(s) > 0 {
 				s += ", "
 			}

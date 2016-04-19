@@ -1274,57 +1274,57 @@ func (t *Ip6DevConfType) attrType()           {}
 type LinkStatType int
 
 const (
-	rx_packets LinkStatType = iota
-	tx_packets              /* total packets transmitted	*/
-	rx_bytes                /* total bytes received 	*/
-	tx_bytes                /* total bytes transmitted	*/
-	rx_errors               /* bad packets received		*/
-	tx_errors               /* packet transmit problems	*/
-	rx_dropped              /* no space in linux buffers	*/
-	tx_dropped              /* no space available in linux	*/
-	multicast               /* multicast packets received	*/
-	collisions
-	rx_length_errors
-	rx_over_errors   /* receiver ring buff overflow	*/
-	rx_crc_errors    /* recved pkt with crc error	*/
-	rx_frame_errors  /* recv'd frame alignment error */
-	rx_fifo_errors   /* recv'r fifo overrun		*/
-	rx_missed_errors /* receiver missed packet	*/
-	tx_aborted_errors
-	tx_carrier_errors
-	tx_fifo_errors
-	tx_heartbeat_errors
-	tx_window_errors
-	rx_compressed
-	tx_compressed
-	n_link_stat
+	Rx_packets LinkStatType = iota
+	Tx_packets              /* total packets transmitted	*/
+	Rx_bytes                /* total bytes received 	*/
+	Tx_bytes                /* total bytes transmitted	*/
+	Rx_errors               /* bad packets received		*/
+	Tx_errors               /* packet transmit problems	*/
+	Rx_dropped              /* no space in linux buffers	*/
+	Tx_dropped              /* no space available in linux	*/
+	Multicast               /* multicast packets received	*/
+	Collisions
+	Rx_length_errors
+	Rx_over_errors   /* receiver ring buff overflow	*/
+	Rx_crc_errors    /* recved pkt with crc error	*/
+	Rx_frame_errors  /* recv'd frame alignment error */
+	Rx_fifo_errors   /* recv'r fifo overrun		*/
+	Rx_missed_errors /* receiver missed packet	*/
+	Tx_aborted_errors
+	Tx_carrier_errors
+	Tx_fifo_errors
+	Tx_heartbeat_errors
+	Tx_window_errors
+	Rx_compressed
+	Tx_compressed
+	N_link_stat
 )
 
 func (t LinkStatType) String() string {
 	names := []string{
-		rx_packets:          "Rx Packets",
-		tx_packets:          "Tx Packets",
-		rx_bytes:            "Rx Bytes",
-		tx_bytes:            "Tx Bytes",
-		rx_errors:           "Rx Errors",
-		tx_errors:           "Tx Errors",
-		rx_dropped:          "Rx Drops",
-		tx_dropped:          "Tx Drops",
-		multicast:           "Rx Multicast Packets",
-		collisions:          "Collisions",
-		rx_length_errors:    "Rx Length Errors",
-		rx_over_errors:      "Rx Overrun Errors",
-		rx_crc_errors:       "Rx CRC Errors",
-		rx_frame_errors:     "Rx Frame Errors",
-		rx_fifo_errors:      "Rx Fifo Errors",
-		rx_missed_errors:    "Rx Missed Errors",
-		tx_aborted_errors:   "Tx Aborts",
-		tx_carrier_errors:   "Tx Carrier Errors",
-		tx_fifo_errors:      "Tx Fifo Errors",
-		tx_heartbeat_errors: "Tx Heartbeat Errors",
-		tx_window_errors:    "Tx Window Errors",
-		rx_compressed:       "Rx Compressed Packets",
-		tx_compressed:       "Tx Compressed Packets",
+		Rx_packets:          "Rx Packets",
+		Tx_packets:          "Tx Packets",
+		Rx_bytes:            "Rx Bytes",
+		Tx_bytes:            "Tx Bytes",
+		Rx_errors:           "Rx Errors",
+		Tx_errors:           "Tx Errors",
+		Rx_dropped:          "Rx Drops",
+		Tx_dropped:          "Tx Drops",
+		Multicast:           "Rx Multicast Packets",
+		Collisions:          "Collisions",
+		Rx_length_errors:    "Rx Length Errors",
+		Rx_over_errors:      "Rx Overrun Errors",
+		Rx_crc_errors:       "Rx CRC Errors",
+		Rx_frame_errors:     "Rx Frame Errors",
+		Rx_fifo_errors:      "Rx Fifo Errors",
+		Rx_missed_errors:    "Rx Missed Errors",
+		Tx_aborted_errors:   "Tx Aborts",
+		Tx_carrier_errors:   "Tx Carrier Errors",
+		Tx_fifo_errors:      "Tx Fifo Errors",
+		Tx_heartbeat_errors: "Tx Heartbeat Errors",
+		Tx_window_errors:    "Tx Window Errors",
+		Rx_compressed:       "Rx Compressed Packets",
+		Tx_compressed:       "Tx Compressed Packets",
 	}
 	i := int(t)
 	if i < len(names) && len(names[i]) > 0 {
