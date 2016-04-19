@@ -122,6 +122,15 @@ type stringAttr string
 type hexStringAttr []byte
 type int32Attr int32
 type int8Attr int8
+type Intter interface {
+	Int() int64
+}
+type Uintter interface {
+	Uint() uint64
+}
+type Runer interface {
+	Rune() rune
+}
 
 func (a stringAttr) attr()          {}
 func (a stringAttr) Size() int      { return len(a) + 1 }
@@ -132,11 +141,16 @@ func (a int32Attr) attr()          {}
 func (a int32Attr) Size() int      { return 4 }
 func (a int32Attr) Set(v []byte)   { *(*int32Attr)(unsafe.Pointer(&v[0])) = a }
 func (a int32Attr) String() string { return strconv.FormatInt(int64(a), 10) }
+func (a int32Attr) Int() int64     { return int64(a) }
+func (a int32Attr) Uint() uint64   { return uint64(a) }
 
 func (a int8Attr) attr()          {}
 func (a int8Attr) Size() int      { return 1 }
 func (a int8Attr) Set(v []byte)   { v[0] = byte(a) }
 func (a int8Attr) String() string { return strconv.FormatInt(int64(a), 10) }
+func (a int8Attr) Int() int64     { return int64(a) }
+func (a int8Attr) Uint() uint64   { return uint64(a) }
+func (a int8Attr) Rune() rune     { return rune(a) }
 
 func (a hexStringAttr) attr()          {}
 func (a hexStringAttr) Size() int      { return len(a) }
