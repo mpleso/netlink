@@ -675,20 +675,20 @@ func (a *ethernetAddress) String() string {
 }
 
 func afAddr(af AddressFamily, b []byte) Attr {
-	switch af {
-	case AF_INET:
+	switch {
+	case af == AF_INET || len(b) == 4:
 		return &ip4Address{b[0], b[1], b[2], b[3]}
-	case AF_INET6:
+	case af == AF_INET6 || len(b) == 16:
 		return &ip6Address{
 			b[0x0], b[0x1], b[0x2], b[0x3],
 			b[0x4], b[0x5], b[0x6], b[0x3],
 			b[0x8], b[0x9], b[0xa], b[0xb],
 			b[0xc], b[0xd], b[0xe], b[0xf],
 		}
-	case AF_UNSPEC:
+	case af == AF_UNSPEC || len(b) == 6:
 		return &ethernetAddress{b[0], b[1], b[2], b[3], b[4], b[5]}
 	default:
-		panic(b)
+		panic(fmt.Errorf("unrecognized addr: %v", b))
 	}
 }
 
