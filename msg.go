@@ -759,8 +759,7 @@ func (s *Socket) rx() (done bool) {
 		}
 
 		done = h.Type == NLMSG_DONE
-		msg := s.rx_buffer[i : i+int(h.Len)]
-		s.rxDispatch(h, msg)
+		s.rxDispatch(h, s.rx_buffer[i:i+int(h.Len)])
 		i += l
 	}
 	return
