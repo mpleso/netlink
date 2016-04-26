@@ -716,7 +716,7 @@ func (s *Socket) rxDispatch(h *Header, msg []byte) {
 	default:
 		panic("unhandled message " + h.Type.String())
 	}
-	m.Parse(msg)
+	m.Parse(append([]byte{}, msg...))
 	if errMsg != nil && errMsg.Req.Pid == s.pid {
 		s.Lock()
 		defer s.Unlock()
