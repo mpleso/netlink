@@ -288,6 +288,8 @@ func (m *IfInfoMessage) Parse(b []byte) {
 			m.Attrs[n.Kind] = int32Attr(*(*int32)(unsafe.Pointer(&v[0])))
 		case IFLA_CARRIER:
 			m.Attrs[n.Kind] = int8Attr(*(*int8)(unsafe.Pointer(&v[0])))
+		case IFLA_OPERSTATE:
+			m.Attrs[n.Kind] = IfOperState(v[0])
 		case IFLA_STATS:
 			m.Attrs[n.Kind] = (*LinkStats)(unsafe.Pointer(&v[0]))
 		case IFLA_STATS64:

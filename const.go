@@ -1040,6 +1040,38 @@ var ifAddrAttrKindNames = []string{
 func (t IfInfoAttrKind) String() string { return elib.Stringer(ifInfoAttrKindNames, int(t)) }
 func (t IfAddrAttrKind) String() string { return elib.Stringer(ifAddrAttrKindNames, int(t)) }
 
+type IfOperState uint8
+
+const (
+	IF_OPER_UNKNOWN IfOperState = iota
+	IF_OPER_NOTPRESENT
+	IF_OPER_DOWN
+	IF_OPER_LOWERLAYERDOWN
+	IF_OPER_TESTING
+	IF_OPER_DORMANT
+	IF_OPER_UP
+)
+
+var ifOperStates = []string{
+	"unknown",
+	"not present",
+	"down",
+	"lower layer down",
+	"testing",
+	"dormant",
+	"up",
+}
+
+func (a IfOperState) attr()        {}
+func (a IfOperState) Size() int    { return 1 }
+func (a IfOperState) Set(v []byte) { panic("should never be called") }
+func (a IfOperState) String() string {
+	if int(a) >= len(ifOperStates) {
+		a = 0
+	}
+	return ifOperStates[a]
+}
+
 type IfAddrCacheInfo struct {
 	Prefered         uint32
 	Valid            uint32
