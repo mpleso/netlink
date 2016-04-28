@@ -648,45 +648,45 @@ type Byter interface {
 	Bytes() []byte
 }
 
-type ip4Address [4]byte
-type ip6Address [16]byte
-type ethernetAddress [6]byte
+type Ip4Address [4]byte
+type Ip6Address [16]byte
+type EthernetAddress [6]byte
 
-func (a *ip4Address) attr()         {}
-func (a *ip4Address) Bytes() []byte { return a[:] }
-func (a *ip4Address) Size() int     { return len(a) }
-func (a *ip4Address) Set(v []byte)  { copy(v, a[:]) }
-func (a *ip4Address) String() string {
+func (a *Ip4Address) attr()         {}
+func (a *Ip4Address) Bytes() []byte { return a[:] }
+func (a *Ip4Address) Size() int     { return len(a) }
+func (a *Ip4Address) Set(v []byte)  { copy(v, a[:]) }
+func (a *Ip4Address) String() string {
 	return fmt.Sprintf("%d.%d.%d.%d", a[0], a[1], a[2], a[3])
 }
-func (a *ip6Address) attr()         {}
-func (a *ip6Address) Bytes() []byte { return a[:] }
-func (a *ip6Address) Size() int     { return len(a) }
-func (a *ip6Address) Set(v []byte)  { copy(v, a[:]) }
-func (a *ip6Address) String() string {
+func (a *Ip6Address) attr()         {}
+func (a *Ip6Address) Bytes() []byte { return a[:] }
+func (a *Ip6Address) Size() int     { return len(a) }
+func (a *Ip6Address) Set(v []byte)  { copy(v, a[:]) }
+func (a *Ip6Address) String() string {
 	return net.IP(a[:]).String()
 }
-func (a *ethernetAddress) attr()         {}
-func (a *ethernetAddress) Bytes() []byte { return a[:] }
-func (a *ethernetAddress) Size() int     { return len(a) }
-func (a *ethernetAddress) Set(v []byte)  { copy(v, a[:]) }
-func (a *ethernetAddress) String() string {
+func (a *EthernetAddress) attr()         {}
+func (a *EthernetAddress) Bytes() []byte { return a[:] }
+func (a *EthernetAddress) Size() int     { return len(a) }
+func (a *EthernetAddress) Set(v []byte)  { copy(v, a[:]) }
+func (a *EthernetAddress) String() string {
 	return fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x", a[0], a[1], a[2], a[3], a[4], a[5])
 }
 
 func afAddr(af AddressFamily, b []byte) Attr {
 	switch {
 	case af == AF_INET || len(b) == 4:
-		return &ip4Address{b[0], b[1], b[2], b[3]}
+		return &Ip4Address{b[0], b[1], b[2], b[3]}
 	case af == AF_INET6 || len(b) == 16:
-		return &ip6Address{
+		return &Ip6Address{
 			b[0x0], b[0x1], b[0x2], b[0x3],
 			b[0x4], b[0x5], b[0x6], b[0x3],
 			b[0x8], b[0x9], b[0xa], b[0xb],
 			b[0xc], b[0xd], b[0xe], b[0xf],
 		}
 	case af == AF_UNSPEC || len(b) == 6:
-		return &ethernetAddress{b[0], b[1], b[2], b[3], b[4], b[5]}
+		return &EthernetAddress{b[0], b[1], b[2], b[3], b[4], b[5]}
 	default:
 		panic(fmt.Errorf("unrecognized addr: %v", b))
 	}

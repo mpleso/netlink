@@ -115,55 +115,67 @@ type AttrType interface {
 	String(i int) string
 }
 
-//go:generate go build github.com/platinasystems/elib/gentemplate
-//go:generate ./gentemplate -d Package=netlink -id Attr -d Type=Attr github.com/platinasystems/elib/vec.tmpl
+type HexStringAttr []byte
 
-type stringAttr string
-type hexStringAttr []byte
-type uint8Attr uint8
-type uint32Attr uint32
-type uint64Attr uint64
+type StringAttr string
+
+func (a StringAttr) attr()          {}
+func (a StringAttr) Size() int      { return len(a) + 1 }
+func (a StringAttr) Set(v []byte)   { copy(v, a); v = append(v, 0) }
+func (a StringAttr) String() string { return string(a) }
+
+type Uint8Attr uint8
+
+func (a Uint8Attr) attr()          {}
+func (a Uint8Attr) Size() int      { return 1 }
+func (a Uint8Attr) Set(v []byte)   { v[0] = byte(a) }
+func (a Uint8Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
+
 type Uint8er interface {
 	Uint() uint8
 }
-type Uint32er interface {
-	Uint() uint32
-}
-type Uint64er interface {
-	Uint() uint64
-}
+
+func (a Uint8Attr) Uint() uint8 { return uint8(a) }
+
 type Runer interface {
 	Rune() rune
 }
 
-func (a stringAttr) attr()          {}
-func (a stringAttr) Size() int      { return len(a) + 1 }
-func (a stringAttr) Set(v []byte)   { copy(v, a); v = append(v, 0) }
-func (a stringAttr) String() string { return string(a) }
+func (a Uint8Attr) Rune() rune { return rune(a) }
 
-func (a uint8Attr) attr()          {}
-func (a uint8Attr) Size() int      { return 1 }
-func (a uint8Attr) Set(v []byte)   { v[0] = byte(a) }
-func (a uint8Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
-func (a uint8Attr) Uint() uint8    { return uint8(a) }
-func (a uint8Attr) Rune() rune     { return rune(a) }
+type Uint32Attr uint32
 
-func (a uint32Attr) attr()          {}
-func (a uint32Attr) Size() int      { return 4 }
-func (a uint32Attr) Set(v []byte)   { *(*uint32Attr)(unsafe.Pointer(&v[0])) = a }
-func (a uint32Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
-func (a uint32Attr) Uint() uint32   { return uint32(a) }
+func (a Uint32Attr) attr()          {}
+func (a Uint32Attr) Size() int      { return 4 }
+func (a Uint32Attr) Set(v []byte)   { *(*Uint32Attr)(unsafe.Pointer(&v[0])) = a }
+func (a Uint32Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
 
-func (a uint64Attr) attr()          {}
-func (a uint64Attr) Size() int      { return 4 }
-func (a uint64Attr) Set(v []byte)   { *(*uint64Attr)(unsafe.Pointer(&v[0])) = a }
-func (a uint64Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
-func (a uint64Attr) Uint() uint64   { return uint64(a) }
+type Uint32er interface {
+	Uint() uint32
+}
 
-func (a hexStringAttr) attr()          {}
-func (a hexStringAttr) Size() int      { return len(a) }
-func (a hexStringAttr) Set(v []byte)   { copy(v, a) }
-func (a hexStringAttr) String() string { return hex.EncodeToString(a) }
+func (a Uint32Attr) Uint() uint32 { return uint32(a) }
+
+type Uint64Attr uint64
+
+func (a Uint64Attr) attr()          {}
+func (a Uint64Attr) Size() int      { return 8 }
+func (a Uint64Attr) Set(v []byte)   { *(*Uint64Attr)(unsafe.Pointer(&v[0])) = a }
+func (a Uint64Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
+
+type Uint64er interface {
+	Uint() uint64
+}
+
+func (a Uint64Attr) Uint() uint64 { return uint64(a) }
+
+func (a HexStringAttr) attr()          {}
+func (a HexStringAttr) Size() int      { return len(a) }
+func (a HexStringAttr) Set(v []byte)   { copy(v, a) }
+func (a HexStringAttr) String() string { return hex.EncodeToString(a) }
+
+//go:generate go build github.com/platinasystems/elib/gentemplate
+//go:generate ./gentemplate -d Package=netlink -id Attr -d Type=Attr github.com/platinasystems/elib/vec.tmpl
 
 func (a AttrVec) Size() (l int) {
 	for i := range a {
@@ -291,7 +303,7 @@ func (m *IfInfoMessage) Parse(b []byte) {
 		i = next_i
 		switch t := IfInfoAttrKind(n.Kind); t {
 		case IFLA_IFNAME, IFLA_QDISC:
-			m.Attrs[n.Kind] = stringAttr(string(v[:len(v)-1]))
+			m.Attrs[n.Kind] = StringAttr(string(v[:len(v)-1]))
 		case IFLA_MTU, IFLA_LINK, IFLA_MASTER,
 			IFLA_WEIGHT,
 			IFLA_NET_NS_PID, IFLA_NET_NS_FD, IFLA_LINK_NETNSID,
@@ -300,9 +312,9 @@ func (m *IfInfoMessage) Parse(b []byte) {
 			IFLA_GSO_MAX_SEGS, IFLA_GSO_MAX_SIZE,
 			IFLA_CARRIER_CHANGES,
 			IFLA_GROUP:
-			m.Attrs[n.Kind] = uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
+			m.Attrs[n.Kind] = Uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
 		case IFLA_CARRIER, IFLA_LINKMODE, IFLA_PROTO_DOWN:
-			m.Attrs[n.Kind] = uint8Attr(*(*uint8)(unsafe.Pointer(&v[0])))
+			m.Attrs[n.Kind] = Uint8Attr(*(*uint8)(unsafe.Pointer(&v[0])))
 		case IFLA_OPERSTATE:
 			m.Attrs[n.Kind] = IfOperState(v[0])
 		case IFLA_STATS:
@@ -315,7 +327,7 @@ func (m *IfInfoMessage) Parse(b []byte) {
 			m.Attrs[n.Kind] = afAddr(AF_UNSPEC, v)
 		default:
 			if t < IFLA_MAX {
-				m.Attrs[n.Kind] = hexStringAttr(v)
+				m.Attrs[n.Kind] = HexStringAttr(v)
 			} else {
 				panic(fmt.Errorf("%#v: unknown attr", n.Kind))
 			}
@@ -368,7 +380,7 @@ func parse_ip4_af_spec(b []byte) *AttrArray {
 		case IFLA_INET_CONF:
 			as.X[t] = (*Ip4DevConf)(unsafe.Pointer(&v[0]))
 		default:
-			as.X[t] = hexStringAttr(v)
+			as.X[t] = HexStringAttr(v)
 		}
 	}
 	return as
@@ -409,7 +421,7 @@ func parse_ip6_af_spec(b []byte) *AttrArray {
 		case IFLA_INET6_CONF:
 			as.X[t] = (*Ip6DevConf)(unsafe.Pointer(&v[0]))
 		default:
-			as.X[t] = hexStringAttr(v)
+			as.X[t] = HexStringAttr(v)
 		}
 	}
 	return as
@@ -465,7 +477,7 @@ func (m *IfAddrMessage) Parse(b []byte) {
 		i = next_i
 		switch IfAddrAttrKind(n.Kind) {
 		case IFA_LABEL:
-			m.Attrs[n.Kind] = stringAttr(v[:len(v)-1])
+			m.Attrs[n.Kind] = StringAttr(v[:len(v)-1])
 		case IFA_FLAGS:
 			m.Attrs[n.Kind] = *(*IfAddrFlagAttr)(unsafe.Pointer(&v[0]))
 		case IFA_CACHEINFO:
@@ -473,7 +485,7 @@ func (m *IfAddrMessage) Parse(b []byte) {
 		case IFA_ADDRESS, IFA_BROADCAST, IFA_LOCAL:
 			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
 		default:
-			m.Attrs[n.Kind] = hexStringAttr(v)
+			m.Attrs[n.Kind] = HexStringAttr(v)
 		}
 	}
 	return
@@ -531,9 +543,9 @@ func (m *RouteMessage) Parse(b []byte) {
 		case RTA_DST, RTA_SRC, RTA_PREFSRC, RTA_GATEWAY:
 			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
 		case RTA_TABLE, RTA_OIF, RTA_PRIORITY:
-			m.Attrs[n.Kind] = uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
+			m.Attrs[n.Kind] = Uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
 		default:
-			m.Attrs[n.Kind] = hexStringAttr(v)
+			m.Attrs[n.Kind] = HexStringAttr(v)
 		}
 	}
 	return
@@ -590,9 +602,9 @@ func (m *NeighborMessage) Parse(b []byte) {
 		case NDA_LLADDR:
 			m.Attrs[n.Kind] = afAddr(AF_UNSPEC, v)
 		case NDA_PROBES:
-			m.Attrs[n.Kind] = uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
+			m.Attrs[n.Kind] = Uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
 		default:
-			m.Attrs[n.Kind] = hexStringAttr(v)
+			m.Attrs[n.Kind] = HexStringAttr(v)
 		}
 	}
 	return
