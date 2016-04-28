@@ -246,7 +246,7 @@ type IfInfomsg struct {
 	Family uint8
 	_      uint8
 	Type   uint16
-	Index  int32
+	Index  uint32
 	Flags  IfInfoFlags
 	Change IfInfoFlags
 }
@@ -454,7 +454,7 @@ func (x RouteAttrKind) String() string { return elib.Stringer(routeAttrKindNames
 type Ndmsg struct {
 	Family uint8
 	_      [3]uint8
-	Index  int32
+	Index  uint32
 	State  uint16
 	Flags  uint8
 	Type   uint8

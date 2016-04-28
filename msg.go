@@ -120,12 +120,16 @@ type AttrType interface {
 
 type stringAttr string
 type hexStringAttr []byte
-type int32Attr int32
-type int8Attr int8
-type Intter interface {
-	Int() int64
+type uint8Attr uint8
+type uint32Attr uint32
+type uint64Attr uint64
+type Uint8er interface {
+	Uint() uint8
 }
-type Uintter interface {
+type Uint32er interface {
+	Uint() uint32
+}
+type Uint64er interface {
 	Uint() uint64
 }
 type Runer interface {
@@ -137,20 +141,24 @@ func (a stringAttr) Size() int      { return len(a) + 1 }
 func (a stringAttr) Set(v []byte)   { copy(v, a); v = append(v, 0) }
 func (a stringAttr) String() string { return string(a) }
 
-func (a int32Attr) attr()          {}
-func (a int32Attr) Size() int      { return 4 }
-func (a int32Attr) Set(v []byte)   { *(*int32Attr)(unsafe.Pointer(&v[0])) = a }
-func (a int32Attr) String() string { return strconv.FormatInt(int64(a), 10) }
-func (a int32Attr) Int() int64     { return int64(a) }
-func (a int32Attr) Uint() uint64   { return uint64(a) }
+func (a uint8Attr) attr()          {}
+func (a uint8Attr) Size() int      { return 1 }
+func (a uint8Attr) Set(v []byte)   { v[0] = byte(a) }
+func (a uint8Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
+func (a uint8Attr) Uint() uint8    { return uint8(a) }
+func (a uint8Attr) Rune() rune     { return rune(a) }
 
-func (a int8Attr) attr()          {}
-func (a int8Attr) Size() int      { return 1 }
-func (a int8Attr) Set(v []byte)   { v[0] = byte(a) }
-func (a int8Attr) String() string { return strconv.FormatInt(int64(a), 10) }
-func (a int8Attr) Int() int64     { return int64(a) }
-func (a int8Attr) Uint() uint64   { return uint64(a) }
-func (a int8Attr) Rune() rune     { return rune(a) }
+func (a uint32Attr) attr()          {}
+func (a uint32Attr) Size() int      { return 4 }
+func (a uint32Attr) Set(v []byte)   { *(*uint32Attr)(unsafe.Pointer(&v[0])) = a }
+func (a uint32Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
+func (a uint32Attr) Uint() uint32   { return uint32(a) }
+
+func (a uint64Attr) attr()          {}
+func (a uint64Attr) Size() int      { return 4 }
+func (a uint64Attr) Set(v []byte)   { *(*uint64Attr)(unsafe.Pointer(&v[0])) = a }
+func (a uint64Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
+func (a uint64Attr) Uint() uint64   { return uint64(a) }
 
 func (a hexStringAttr) attr()          {}
 func (a hexStringAttr) Size() int      { return len(a) }
@@ -284,10 +292,17 @@ func (m *IfInfoMessage) Parse(b []byte) {
 		switch t := IfInfoAttrKind(n.Kind); t {
 		case IFLA_IFNAME, IFLA_QDISC:
 			m.Attrs[n.Kind] = stringAttr(string(v[:len(v)-1]))
-		case IFLA_NUM_RX_QUEUES, IFLA_NUM_TX_QUEUES, IFLA_PORT_SELF, IFLA_MTU, IFLA_TXQLEN, IFLA_PROMISCUITY, IFLA_GROUP, IFLA_CARRIER_CHANGES:
-			m.Attrs[n.Kind] = int32Attr(*(*int32)(unsafe.Pointer(&v[0])))
-		case IFLA_CARRIER:
-			m.Attrs[n.Kind] = int8Attr(*(*int8)(unsafe.Pointer(&v[0])))
+		case IFLA_MTU, IFLA_LINK, IFLA_MASTER,
+			IFLA_WEIGHT,
+			IFLA_NET_NS_PID, IFLA_NET_NS_FD, IFLA_LINK_NETNSID,
+			IFLA_EXT_MASK, IFLA_PROMISCUITY,
+			IFLA_NUM_TX_QUEUES, IFLA_NUM_RX_QUEUES, IFLA_TXQLEN,
+			IFLA_GSO_MAX_SEGS, IFLA_GSO_MAX_SIZE,
+			IFLA_CARRIER_CHANGES,
+			IFLA_GROUP:
+			m.Attrs[n.Kind] = uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
+		case IFLA_CARRIER, IFLA_LINKMODE, IFLA_PROTO_DOWN:
+			m.Attrs[n.Kind] = uint8Attr(*(*uint8)(unsafe.Pointer(&v[0])))
 		case IFLA_OPERSTATE:
 			m.Attrs[n.Kind] = IfOperState(v[0])
 		case IFLA_STATS:
@@ -516,7 +531,7 @@ func (m *RouteMessage) Parse(b []byte) {
 		case RTA_DST, RTA_SRC, RTA_PREFSRC, RTA_GATEWAY:
 			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
 		case RTA_TABLE, RTA_OIF, RTA_PRIORITY:
-			m.Attrs[n.Kind] = int32Attr(*(*int32)(unsafe.Pointer(&v[0])))
+			m.Attrs[n.Kind] = uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
 		default:
 			m.Attrs[n.Kind] = hexStringAttr(v)
 		}
@@ -575,7 +590,7 @@ func (m *NeighborMessage) Parse(b []byte) {
 		case NDA_LLADDR:
 			m.Attrs[n.Kind] = afAddr(AF_UNSPEC, v)
 		case NDA_PROBES:
-			m.Attrs[n.Kind] = int32Attr(*(*int32)(unsafe.Pointer(&v[0])))
+			m.Attrs[n.Kind] = uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
 		default:
 			m.Attrs[n.Kind] = hexStringAttr(v)
 		}
