@@ -283,6 +283,7 @@ var scopeNames = []string{
 }
 
 func (s RtScope) String() string { return elib.Stringer(scopeNames, int(s)) }
+func (s RtScope) Uint() uint8    { return uint8(s) }
 
 type Rtmsg struct {
 	Family   uint8
@@ -635,6 +636,7 @@ var afNames = []string{
 }
 
 func (af AddressFamily) String() string { return elib.Stringer(afNames, int(af)) }
+func (af AddressFamily) Uint() uint8    { return uint8(af) }
 
 type AddressFamilyAttrType struct{}
 
@@ -878,6 +880,7 @@ var ifAddrFlagNames = []string{
 }
 
 func (x IfAddrFlags) String() string { return elib.FlagStringer(ifAddrFlagNames, elib.Word(x)) }
+func (x IfAddrFlags) Uint() uint8    { return uint8(x) }
 
 type MessageType int
 
