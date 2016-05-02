@@ -852,7 +852,24 @@ var ifInfoFlagNames = []string{
 
 func (x IfInfoFlags) String() string { return elib.FlagStringer(ifInfoFlagNames, elib.Word(x)) }
 
-type IfAddrFlags int
+type IfAddrFlags uint32
+
+const (
+	IFA_F_SECONDARY IfAddrFlags = 1 << iota
+	IFA_F_NODAD
+	IFA_F_OPTIMISTIC
+	IFA_F_DADFAILED
+	IFA_F_HOMEADDRESS
+	IFA_F_DEPRECATED
+	IFA_F_TENTATIVE
+	IFA_F_PERMANENT
+	IFA_F_MANAGETEMPADDR
+	IFA_F_NOPREFIXROUTE
+	IFA_F_MCAUTOJOIN
+	IFA_F_STABLE_PRIVACY
+
+	IFA_F_TEMPORARY = IFA_F_SECONDARY
+)
 
 var ifAddrFlagNames = []string{
 	"SECONDARY", "NO_DAD", "OPTIMISTIC", "DAD_FAILED",
