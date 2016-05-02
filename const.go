@@ -263,25 +263,26 @@ type IfAddrmsg struct {
 
 const SizeofIfAddrmsg = 8
 
-type Scope uint8
+type RtScope uint8
 
 const (
-	ScopeUniverse Scope = 0
-	ScopeSite     Scope = 200
-	ScopeLink     Scope = 253
-	ScopeHost     Scope = 254
-	ScopeNowhere  Scope = 255
+	RT_SCOPE_UNIVERSE RtScope = 0
+	// User defined values
+	RT_SCOPE_SITE    RtScope = 200
+	RT_SCOPE_LINK    RtScope = 253
+	RT_SCOPE_HOST    RtScope = 254
+	RT_SCOPE_NOWHERE RtScope = 255
 )
 
 var scopeNames = []string{
-	ScopeUniverse: "Universe",
-	ScopeSite:     "Site",
-	ScopeLink:     "Link",
-	ScopeHost:     "Host",
-	ScopeNowhere:  "Nowhere",
+	RT_SCOPE_UNIVERSE: "Universe",
+	RT_SCOPE_SITE:     "Site",
+	RT_SCOPE_LINK:     "Link",
+	RT_SCOPE_HOST:     "Host",
+	RT_SCOPE_NOWHERE:  "Nowhere",
 }
 
-func (s Scope) String() string { return elib.Stringer(scopeNames, int(s)) }
+func (s RtScope) String() string { return elib.Stringer(scopeNames, int(s)) }
 
 type Rtmsg struct {
 	Family   uint8
@@ -290,7 +291,7 @@ type Rtmsg struct {
 	Tos      uint8
 	Table    uint8
 	Protocol RouteProtocol
-	Scope    Scope
+	Scope    RtScope
 	Type     RouteType
 	Flags    RouteFlags
 }

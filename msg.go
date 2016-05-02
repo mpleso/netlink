@@ -458,7 +458,7 @@ func (m *IfAddrMessage) String() string {
 	s := m.Header.String()
 	s += fmt.Sprintf("\nIndex: %d, Family: %s, Prefix Len %d, Flags: %s, Scope: %s", m.Index,
 		AddressFamily(m.Family),
-		m.Prefixlen, IfAddrFlags(m.Header.Flags), Scope(m.Scope))
+		m.Prefixlen, IfAddrFlags(m.Header.Flags), RtScope(m.Scope))
 	for i := range m.Attrs {
 		if m.Attrs[i] != nil {
 			s += fmt.Sprintf(attrFormat, IfAddrAttrKind(i), m.Attrs[i])
