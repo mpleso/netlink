@@ -632,12 +632,14 @@ func (s *Socket) TxAddReq(header *Header, nBytes int) []byte {
 	header.Pid = s.pid
 
 	// Sequence 0 is reserved for unsolicited messages from kernel.
-	if s.tx_sequence_number == 0 {
-		s.tx_sequence_number = 1
+	if header.Sequence == 0 {
+		if s.tx_sequence_number == 0 {
+			s.tx_sequence_number = 1
+		}
+		h.Sequence = uint32(s.tx_sequence_number)
+		header.Sequence = uint32(s.tx_sequence_number)
+		s.tx_sequence_number++
 	}
-	h.Sequence = uint32(s.tx_sequence_number)
-	header.Sequence = uint32(s.tx_sequence_number)
-	s.tx_sequence_number++
 
 	return s.tx_buffer[i:]
 }
