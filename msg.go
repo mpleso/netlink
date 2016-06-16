@@ -782,14 +782,23 @@ func (s *Socket) Rx() (Message, error) {
 
 func (s *Socket) rx() (done bool) {
 	s.fillRxBuffer()
-	for i := 0; i+SizeofHeader <= len(s.rx_buffer); {
+	i := 0
+	for {
+		q := len(s.rx_buffer)
+		// Have at least a valid message header in buffer?
+		if i+SizeofHeader > q {
+			s.rx_buffer = s.rx_buffer[:q-i]
+			break
+		}
+		// Have a full message in recieve buffer?
 		h := (*Header)(unsafe.Pointer(&s.rx_buffer[i]))
 		l := messageAlignLen(int(h.Len))
-		if i+l > len(s.rx_buffer) {
+		if i+l > q {
 			if i == len(s.rx_buffer) {
 				s.rx_buffer = s.rx_buffer[:0]
 			} else {
-				copy(s.rx_buffer[:], s.rx_buffer[i:])
+				copy(s.rx_buffer, s.rx_buffer[i:])
+				s.rx_buffer = s.rx_buffer[:q-i]
 			}
 			break
 		}
