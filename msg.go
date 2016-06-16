@@ -901,11 +901,16 @@ var DefaultListenReqs = []ListenReq{
 	{RTM_GETROUTE, AF_INET6},
 }
 
+var NoopListenReq = ListenReq{NLMSG_NOOP, AF_UNSPEC}
+
 func (s *Socket) Listen(reqs ...ListenReq) {
 	if len(reqs) == 0 {
 		reqs = DefaultListenReqs
 	}
 	for _, r := range reqs {
+		if r.MsgType == NLMSG_NOOP {
+			continue
+		}
 		m := &GenMessage{}
 		m.Type = r.MsgType
 		m.Flags = NLM_F_DUMP
