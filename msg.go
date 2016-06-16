@@ -700,6 +700,11 @@ func (m *GenMessage) Parse(b []byte) {
 	m.Header = p.Header
 	m.AddressFamily = p.AddressFamily
 }
+
+func (m *GenMessage) String() string {
+	return m.Header.String() + " " + m.AddressFamily.String()
+
+}
 func (m *GenMessage) TxAdd(s *Socket) {
 	b := s.TxAddReq(&m.Header, SizeofGenMessage)
 	p := (*GenMessage)(unsafe.Pointer(&b[0]))
