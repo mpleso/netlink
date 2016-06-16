@@ -847,7 +847,9 @@ func New(rx chan Message, groups ...MulticastGroup) (s *Socket, err error) {
 		groups = DefaultGroups
 	}
 	for _, group := range groups {
-		groupbits |= 1 << group
+		if group != NOOP_RTNLGRP {
+			groupbits |= 1 << group
+		}
 	}
 
 	sa := &syscall.SockaddrNetlink{

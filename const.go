@@ -187,6 +187,7 @@ const (
 	RTNLGRP_MDB
 	RTNLGRP_MPLS_ROUTE
 	RTNLGRP_NSID
+	NOOP_RTNLGRP
 )
 
 type HeaderFlags uint16
