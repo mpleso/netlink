@@ -847,7 +847,7 @@ const (
 
 var ifInfoFlagNames = []string{
 	"Admin Up", "Broadcast", "Debug", "Loopback",
-	"Point To Point", "No Trailers", "Running", "NO ARP",
+	"Point To Point", "No Trailers", "Running", "No ARP",
 	"Promiscuous", "All Multicast", "Master", "Slave",
 	"Multicast", "Portsel", "Automedia", "Dynamic",
 	"Link Up", "Dormant", "Echo",
