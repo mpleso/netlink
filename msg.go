@@ -38,6 +38,7 @@ func (n *Socket) reset_tx_buffer() {
 
 type Message interface {
 	netlinkMessage()
+	String() string
 	Parse(b []byte)
 	TxAdd(s *Socket)
 }
@@ -175,7 +176,7 @@ func (a HexStringAttr) Set(v []byte)   { copy(v, a) }
 func (a HexStringAttr) String() string { return hex.EncodeToString(a) }
 
 //go:generate go build github.com/platinasystems/elib/gentemplate
-//go:generate ./gentemplate -d Package=netlink -id Attr -d Type=Attr github.com/platinasystems/elib/vec.tmpl
+//go:generate ./gentemplate -d Package=netlink -id Attr -d VecType=AttrVec -d Type=Attr github.com/platinasystems/elib/vec.tmpl
 
 func (a AttrVec) Size() (l int) {
 	for i := range a {
