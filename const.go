@@ -255,7 +255,7 @@ type IfInfomsg struct {
 const SizeofIfInfomsg = 16
 
 type IfAddrmsg struct {
-	Family    uint8
+	Family    AddressFamily
 	Prefixlen uint8
 	Flags     uint8
 	Scope     uint8
@@ -287,7 +287,7 @@ func (s RtScope) String() string { return elib.Stringer(scopeNames, int(s)) }
 func (s RtScope) Uint() uint8    { return uint8(s) }
 
 type Rtmsg struct {
-	Family   uint8
+	Family   AddressFamily
 	DstLen   uint8
 	SrcLen   uint8
 	Tos      uint8
@@ -455,7 +455,7 @@ var routeAttrKindNames = []string{
 func (x RouteAttrKind) String() string { return elib.Stringer(routeAttrKindNames, int(x)) }
 
 type Ndmsg struct {
-	Family uint8
+	Family AddressFamily
 	_      [3]uint8
 	Index  uint32
 	State  uint16
