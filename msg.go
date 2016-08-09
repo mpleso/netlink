@@ -865,7 +865,7 @@ func New(rx chan Message, groups ...MulticastGroup) (s *Socket, err error) {
 	}
 
 	// Increase socket buffering.
-	bytes := 256 << 10
+	bytes := 1024 << 10
 	if err = os.NewSyscallError("setsockopt SO_RCVBUF", syscall.SetsockoptInt(s.socket, syscall.SOL_SOCKET, syscall.SO_RCVBUF, bytes)); err != nil {
 		return
 	}
