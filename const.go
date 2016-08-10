@@ -458,9 +458,9 @@ type Ndmsg struct {
 	Family AddressFamily
 	_      [3]uint8
 	Index  uint32
-	State  uint16
+	State  NeighborState
 	Flags  uint8
-	Type   uint8
+	Type   RouteType
 }
 
 const SizeofNdmsg = 12
@@ -519,29 +519,29 @@ var neighborFlagNames = []string{
 
 func (x NeighborFlags) String() string { return elib.FlagStringer(neighborFlagNames, elib.Word(x)) }
 
-type NeighborState int
+type NeighborState uint16
 
 const (
-	_ NeighborState = iota
-	NUD_INCOMPLETE
-	NUD_REACHABLE
-	NUD_STALE
-	NUD_DELAY
-	NUD_PROBE
-	NUD_FAILED
-	NUD_NOARP
-	NUD_PERMANENT
+	NUD_INCOMPLETE_BIT, NUD_INCOMPLETE NeighborState = iota, 1 << iota
+	NUD_REACHABLE_BIT, NUD_REACHABLE
+	NUD_STALE_BIT, NUD_STALE
+	NUD_DELAY_BIT, NUD_DELAY
+	NUD_PROBE_BIT, NUD_PROBE
+	NUD_FAILED_BIT, NUD_FAILED
+	NUD_NOARP_BIT, NUD_NOARP
+	NUD_PERMANENT_BIT, NUD_PERMANENT
+	NUD_NONE NeighborState = 0
 )
 
 var neighborStateNames = []string{
-	NUD_INCOMPLETE: "INCOMPLETE",
-	NUD_REACHABLE:  "REACHABLE",
-	NUD_STALE:      "STALE",
-	NUD_DELAY:      "DELAY",
-	NUD_PROBE:      "PROBE",
-	NUD_FAILED:     "FAILED",
-	NUD_NOARP:      "NOARP",
-	NUD_PERMANENT:  "PERMANENT",
+	NUD_INCOMPLETE_BIT: "INCOMPLETE",
+	NUD_REACHABLE_BIT:  "REACHABLE",
+	NUD_STALE_BIT:      "STALE",
+	NUD_DELAY_BIT:      "DELAY",
+	NUD_PROBE_BIT:      "PROBE",
+	NUD_FAILED_BIT:     "FAILED",
+	NUD_NOARP_BIT:      "NOARP",
+	NUD_PERMANENT_BIT:  "PERMANENT",
 }
 
 func (x NeighborState) String() string { return elib.FlagStringer(neighborStateNames, elib.Word(x)) }
