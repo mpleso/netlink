@@ -116,9 +116,14 @@ type NoopMessage struct {
 	Header Header
 }
 
-func NewNoopMessageBytes(b []byte) *NoopMessage {
+func NewNoopMessage() *NoopMessage {
 	m := pool.NoopMessage.Get().(*NoopMessage)
 	runtime.SetFinalizer(m, (*NoopMessage).Close)
+	return m
+}
+
+func NewNoopMessageBytes(b []byte) *NoopMessage {
+	m := NewNoopMessage()
 	m.Parse(b)
 	return m
 }
@@ -145,9 +150,14 @@ type DoneMessage struct {
 	Header Header
 }
 
-func NewDoneMessageBytes(b []byte) *DoneMessage {
+func NewDoneMessage() *DoneMessage {
 	m := pool.DoneMessage.Get().(*DoneMessage)
 	runtime.SetFinalizer(m, (*DoneMessage).Close)
+	return m
+}
+
+func NewDoneMessageBytes(b []byte) *DoneMessage {
+	m := NewDoneMessage()
 	m.Parse(b)
 	return m
 }
@@ -178,9 +188,14 @@ type ErrorMessage struct {
 	Req Header
 }
 
-func NewErrorMessageBytes(b []byte) *ErrorMessage {
+func NewErrorMessage() *ErrorMessage {
 	m := pool.ErrorMessage.Get().(*ErrorMessage)
 	runtime.SetFinalizer(m, (*ErrorMessage).Close)
+	return m
+}
+
+func NewErrorMessageBytes(b []byte) *ErrorMessage {
+	m := NewErrorMessage()
 	m.Parse(b)
 	return m
 }
@@ -477,9 +492,14 @@ type IfInfoMessage struct {
 	Attrs [IFLA_MAX]Attr
 }
 
-func NewIfInfoMessageBytes(b []byte) *IfInfoMessage {
+func NewIfInfoMessage() *IfInfoMessage {
 	m := pool.IfInfoMessage.Get().(*IfInfoMessage)
 	runtime.SetFinalizer(m, (*IfInfoMessage).Close)
+	return m
+}
+
+func NewIfInfoMessageBytes(b []byte) *IfInfoMessage {
+	m := NewIfInfoMessage()
 	m.Parse(b)
 	return m
 }
@@ -701,9 +721,14 @@ type IfAddrMessage struct {
 	Attrs [IFA_MAX]Attr
 }
 
-func NewIfAddrMessageBytes(b []byte) *IfAddrMessage {
+func NewIfAddrMessage() *IfAddrMessage {
 	m := pool.IfAddrMessage.Get().(*IfAddrMessage)
 	runtime.SetFinalizer(m, (*IfAddrMessage).Close)
+	return m
+}
+
+func NewIfAddrMessageBytes(b []byte) *IfAddrMessage {
+	m := NewIfAddrMessage()
 	m.Parse(b)
 	return m
 }
@@ -787,9 +812,14 @@ type RouteMessage struct {
 	Attrs [RTA_MAX]Attr
 }
 
-func NewRouteMessageBytes(b []byte) *RouteMessage {
+func NewRouteMessage() *RouteMessage {
 	m := pool.RouteMessage.Get().(*RouteMessage)
 	runtime.SetFinalizer(m, (*RouteMessage).Close)
+	return m
+}
+
+func NewRouteMessageBytes(b []byte) *RouteMessage {
+	m := NewRouteMessage()
 	m.Parse(b)
 	return m
 }
@@ -857,9 +887,14 @@ type NeighborMessage struct {
 	Attrs [NDA_MAX]Attr
 }
 
-func NewNeighborMessageBytes(b []byte) *NeighborMessage {
+func NewNeighborMessage() *NeighborMessage {
 	m := pool.NeighborMessage.Get().(*NeighborMessage)
 	runtime.SetFinalizer(m, (*NeighborMessage).Close)
+	return m
+}
+
+func NewNeighborMessageBytes(b []byte) *NeighborMessage {
+	m := NewNeighborMessage()
 	m.Parse(b)
 	return m
 }
@@ -1007,6 +1042,12 @@ const SizeofGenMessage = 1
 func NewGenMessage() *GenMessage {
 	m := pool.GenMessage.Get().(*GenMessage)
 	runtime.SetFinalizer(m, (*GenMessage).Close)
+	return m
+}
+
+func NewGenMessageBytes(b []byte) *GenMessage {
+	m := NewGenMessage()
+	m.Parse(b)
 	return m
 }
 
