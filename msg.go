@@ -1004,8 +1004,15 @@ type GenMessage struct {
 
 const SizeofGenMessage = 1
 
+func NewGenMessage() *GenMessage {
+	m := pool.GenMessage.Get().(*GenMessage)
+	runtime.SetFinalizer(m, (*GenMessage).Close)
+	return m
+}
+
 func (m *GenMessage) netlinkMessage() {}
 func (m *GenMessage) Close() error {
+	runtime.SetFinalizer(m, nil)
 	pool.GenMessage.Put(m)
 	return nil
 }
