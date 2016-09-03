@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"sync"
 	"syscall"
 
@@ -117,12 +118,14 @@ type NoopMessage struct {
 
 func NewNoopMessageBytes(b []byte) *NoopMessage {
 	m := pool.NoopMessage.Get().(*NoopMessage)
+	runtime.SetFinalizer(m, (*NoopMessage).Close)
 	m.Parse(b)
 	return m
 }
 
 func (m *NoopMessage) netlinkMessage() {}
 func (m *NoopMessage) Close() error {
+	runtime.SetFinalizer(m, nil)
 	pool.NoopMessage.Put(m)
 	return nil
 }
@@ -143,12 +146,14 @@ type DoneMessage struct {
 
 func NewDoneMessageBytes(b []byte) *DoneMessage {
 	m := pool.DoneMessage.Get().(*DoneMessage)
+	runtime.SetFinalizer(m, (*DoneMessage).Close)
 	m.Parse(b)
 	return m
 }
 
 func (m *DoneMessage) netlinkMessage() {}
 func (m *DoneMessage) Close() error {
+	runtime.SetFinalizer(m, nil)
 	pool.DoneMessage.Put(m)
 	return nil
 }
@@ -173,6 +178,7 @@ type ErrorMessage struct {
 
 func NewErrorMessageBytes(b []byte) *ErrorMessage {
 	m := pool.ErrorMessage.Get().(*ErrorMessage)
+	runtime.SetFinalizer(m, (*ErrorMessage).Close)
 	m.Parse(b)
 	return m
 }
@@ -470,6 +476,7 @@ type IfInfoMessage struct {
 
 func NewIfInfoMessageBytes(b []byte) *IfInfoMessage {
 	m := pool.IfInfoMessage.Get().(*IfInfoMessage)
+	runtime.SetFinalizer(m, (*IfInfoMessage).Close)
 	m.Parse(b)
 	return m
 }
@@ -479,6 +486,7 @@ const attrFormat = "\n  %-16s %s"
 func (m *IfInfoMessage) netlinkMessage() {}
 
 func (m *IfInfoMessage) Close() error {
+	runtime.SetFinalizer(m, nil)
 	freeAttrs(m.Attrs[:])
 	pool.IfInfoMessage.Put(m)
 	return nil
@@ -691,6 +699,7 @@ type IfAddrMessage struct {
 
 func NewIfAddrMessageBytes(b []byte) *IfAddrMessage {
 	m := pool.IfAddrMessage.Get().(*IfAddrMessage)
+	runtime.SetFinalizer(m, (*IfAddrMessage).Close)
 	m.Parse(b)
 	return m
 }
@@ -698,6 +707,7 @@ func NewIfAddrMessageBytes(b []byte) *IfAddrMessage {
 func (m *IfAddrMessage) netlinkMessage() {}
 
 func (m *IfAddrMessage) Close() error {
+	runtime.SetFinalizer(m, nil)
 	freeAttrs(m.Attrs[:])
 	pool.IfAddrMessage.Put(m)
 	return nil
@@ -774,6 +784,7 @@ type RouteMessage struct {
 
 func NewRouteMessageBytes(b []byte) *RouteMessage {
 	m := pool.RouteMessage.Get().(*RouteMessage)
+	runtime.SetFinalizer(m, (*RouteMessage).Close)
 	m.Parse(b)
 	return m
 }
@@ -781,6 +792,7 @@ func NewRouteMessageBytes(b []byte) *RouteMessage {
 func (m *RouteMessage) netlinkMessage() {}
 
 func (m *RouteMessage) Close() error {
+	runtime.SetFinalizer(m, nil)
 	freeAttrs(m.Attrs[:])
 	pool.RouteMessage.Put(m)
 	return nil
@@ -841,6 +853,7 @@ type NeighborMessage struct {
 
 func NewNeighborMessageBytes(b []byte) *NeighborMessage {
 	m := pool.NeighborMessage.Get().(*NeighborMessage)
+	runtime.SetFinalizer(m, (*NeighborMessage).Close)
 	m.Parse(b)
 	return m
 }
@@ -852,6 +865,7 @@ func (m *NeighborMessage) AttrBytes(kind NeighborAttrKind) []byte {
 }
 
 func (m *NeighborMessage) Close() error {
+	runtime.SetFinalizer(m, nil)
 	freeAttrs(m.Attrs[:])
 	pool.NeighborMessage.Put(m)
 	return nil
