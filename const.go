@@ -475,6 +475,7 @@ func NewRtaCacheInfoBytes(b []byte) *RtaCacheInfo {
 
 func (a *RtaCacheInfo) attr() {}
 func (a *RtaCacheInfo) Close() error {
+	*a = RtaCacheInfo{}
 	pool.RtaCacheInfo.Put(a)
 	return nil
 }
@@ -605,6 +606,7 @@ func NewNdaCacheInfoBytes(b []byte) *NdaCacheInfo {
 
 func (a *NdaCacheInfo) attr() {}
 func (a *NdaCacheInfo) Close() error {
+	*a = NdaCacheInfo{}
 	pool.NdaCacheInfo.Put(a)
 	return nil
 }
@@ -757,6 +759,7 @@ func (a *Ip4Address) Parse(b []byte) {
 	copy(a[:], b[:4])
 }
 func (a *Ip4Address) Close() error {
+	*a = Ip4Address{}
 	pool.Ip4Address.Put(a)
 	return nil
 }
@@ -780,6 +783,7 @@ func (a *Ip6Address) Parse(b []byte) {
 	copy(a[:], b[:16])
 }
 func (a *Ip6Address) Close() error {
+	*a = Ip6Address{}
 	pool.Ip6Address.Put(a)
 	return nil
 }
@@ -804,6 +808,7 @@ func (a *EthernetAddress) Parse(b []byte) {
 	copy(a[:], b[:6])
 }
 func (a *EthernetAddress) Close() error {
+	*a = EthernetAddress{}
 	pool.EthernetAddress.Put(a)
 	return nil
 }
@@ -1234,6 +1239,7 @@ func NewIfAddrCacheInfoBytes(b []byte) *IfAddrCacheInfo {
 
 func (a *IfAddrCacheInfo) attr() {}
 func (a *IfAddrCacheInfo) Close() error {
+	*a = IfAddrCacheInfo{}
 	pool.IfAddrCacheInfo.Put(a)
 	return nil
 }

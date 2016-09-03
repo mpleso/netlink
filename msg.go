@@ -131,6 +131,7 @@ func NewNoopMessageBytes(b []byte) *NoopMessage {
 func (m *NoopMessage) netlinkMessage() {}
 func (m *NoopMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
+	*m = NoopMessage{}
 	pool.NoopMessage.Put(m)
 	return nil
 }
@@ -165,6 +166,7 @@ func NewDoneMessageBytes(b []byte) *DoneMessage {
 func (m *DoneMessage) netlinkMessage() {}
 func (m *DoneMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
+	*m = DoneMessage{}
 	pool.DoneMessage.Put(m)
 	return nil
 }
@@ -202,6 +204,8 @@ func NewErrorMessageBytes(b []byte) *ErrorMessage {
 
 func (m *ErrorMessage) netlinkMessage() {}
 func (m *ErrorMessage) Close() error {
+	runtime.SetFinalizer(m, nil)
+	*m = ErrorMessage{}
 	pool.ErrorMessage.Put(m)
 	return nil
 }
@@ -223,7 +227,7 @@ func (m *ErrorMessage) TxAdd(s *Socket) {
 	e.Req = m.Req
 }
 
-func freeAttrs(attrs []Attr) {
+func closeAttrs(attrs []Attr) {
 	for i, a := range attrs {
 		if a != nil {
 			if method, found := a.(Closer); found {
@@ -391,6 +395,7 @@ func (a *AttrArray) Close() error {
 	if method, found := a.Type.(Closer); found {
 		method.Close()
 	}
+	*a = AttrArray{}
 	pool.AttrArray.Put(a)
 	return nil
 }
@@ -424,6 +429,7 @@ func NewLinkStatsBytes(b []byte) *LinkStats {
 
 func (a *LinkStats) attr() {}
 func (a *LinkStats) Close() error {
+	*a = LinkStats{}
 	pool.LinkStats.Put(a)
 	return nil
 }
@@ -460,6 +466,7 @@ func NewLinkStats64Bytes(b []byte) *LinkStats64 {
 
 func (a *LinkStats64) attr() {}
 func (a *LinkStats64) Close() error {
+	*a = LinkStats64{}
 	pool.LinkStats64.Put(a)
 	return nil
 }
@@ -510,7 +517,8 @@ func (m *IfInfoMessage) netlinkMessage() {}
 
 func (m *IfInfoMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
-	freeAttrs(m.Attrs[:])
+	closeAttrs(m.Attrs[:])
+	*m = IfInfoMessage{}
 	pool.IfInfoMessage.Put(m)
 	return nil
 }
@@ -595,6 +603,7 @@ func NewIp4DevConfBytes(b []byte) *Ip4DevConf {
 
 func (a *Ip4DevConf) attr() {}
 func (a *Ip4DevConf) Close() error {
+	*a = Ip4DevConf{}
 	pool.Ip4DevConf.Put(a)
 	return nil
 }
@@ -650,6 +659,7 @@ func NewIp6DevConfBytes(b []byte) *Ip6DevConf {
 
 func (a *Ip6DevConf) attr() {}
 func (a *Ip6DevConf) Close() error {
+	*a = Ip6DevConf{}
 	pool.Ip6DevConf.Put(a)
 	return nil
 }
@@ -737,7 +747,8 @@ func (m *IfAddrMessage) netlinkMessage() {}
 
 func (m *IfAddrMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
-	freeAttrs(m.Attrs[:])
+	closeAttrs(m.Attrs[:])
+	*m = IfAddrMessage{}
 	pool.IfAddrMessage.Put(m)
 	return nil
 }
@@ -828,7 +839,8 @@ func (m *RouteMessage) netlinkMessage() {}
 
 func (m *RouteMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
-	freeAttrs(m.Attrs[:])
+	closeAttrs(m.Attrs[:])
+	*m = RouteMessage{}
 	pool.RouteMessage.Put(m)
 	return nil
 }
@@ -907,7 +919,8 @@ func (m *NeighborMessage) AttrBytes(kind NeighborAttrKind) []byte {
 
 func (m *NeighborMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
-	freeAttrs(m.Attrs[:])
+	closeAttrs(m.Attrs[:])
+	*m = NeighborMessage{}
 	pool.NeighborMessage.Put(m)
 	return nil
 }
@@ -1054,6 +1067,7 @@ func NewGenMessageBytes(b []byte) *GenMessage {
 func (m *GenMessage) netlinkMessage() {}
 func (m *GenMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
+	*m = GenMessage{}
 	pool.GenMessage.Put(m)
 	return nil
 }
