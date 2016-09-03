@@ -799,6 +799,8 @@ func (m *RouteMessage) Parse(b []byte) {
 			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
 		case RTA_TABLE, RTA_OIF, RTA_PRIORITY:
 			m.Attrs[n.Kind] = Uint32AttrBytes(v)
+		case RTA_CACHEINFO:
+			m.Attrs[n.Kind] = NewRtaCacheInfoBytes(v)
 		default:
 			m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
 		}
@@ -869,7 +871,7 @@ func (m *NeighborMessage) Parse(b []byte) {
 		case NDA_LLADDR:
 			m.Attrs[n.Kind] = afAddr(AF_UNSPEC, v)
 		case NDA_CACHEINFO:
-			m.Attrs[n.Kind] = NewNeighborCacheInfoBytes(v)
+			m.Attrs[n.Kind] = NewNdaCacheInfoBytes(v)
 		case NDA_PROBES:
 			m.Attrs[n.Kind] = Uint32AttrBytes(v)
 		default:

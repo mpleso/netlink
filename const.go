@@ -455,7 +455,42 @@ var routeAttrKindNames = []string{
 	RTA_MFC_STATS: "MFC_STATS",
 }
 
-func (x RouteAttrKind) String() string { return elib.Stringer(routeAttrKindNames, int(x)) }
+func (x RouteAttrKind) String() string {
+	return elib.Stringer(routeAttrKindNames, int(x))
+}
+
+type RtaCacheInfo struct {
+	ClntRef uint32
+	LastUse uint32
+	Expires uint32
+	Error   uint32
+	Used    uint32
+}
+
+func NewRtaCacheInfoBytes(b []byte) *RtaCacheInfo {
+	a := pool.RtaCacheInfo.Get().(*RtaCacheInfo)
+	a.Parse(b)
+	return a
+}
+
+func (a *RtaCacheInfo) attr() {}
+func (a *RtaCacheInfo) Close() error {
+	pool.RtaCacheInfo.Put(a)
+	return nil
+}
+func (a *RtaCacheInfo) Set(v []byte) {
+	panic("should never be called")
+}
+func (a *RtaCacheInfo) Size() int {
+	panic("should never be called")
+	return 0
+}
+func (a *RtaCacheInfo) String() string {
+	return fmt.Sprintf("%+v", *a)
+}
+func (a *RtaCacheInfo) Parse(b []byte) {
+	*a = *(*RtaCacheInfo)(unsafe.Pointer(&b[0]))
+}
 
 type Ndmsg struct {
 	Family AddressFamily
@@ -555,36 +590,36 @@ func (x NeighborState) String() string {
 	return elib.FlagStringer(neighborStateNames, elib.Word(x))
 }
 
-type NeighborCacheInfo struct {
+type NdaCacheInfo struct {
 	Confirmed uint32
 	Used      uint32
 	Updated   uint32
 	RefCnt    uint32
 }
 
-func NewNeighborCacheInfoBytes(b []byte) *NeighborCacheInfo {
-	a := pool.NeighborCacheInfo.Get().(*NeighborCacheInfo)
+func NewNdaCacheInfoBytes(b []byte) *NdaCacheInfo {
+	a := pool.NdaCacheInfo.Get().(*NdaCacheInfo)
 	a.Parse(b)
 	return a
 }
 
-func (a *NeighborCacheInfo) attr() {}
-func (a *NeighborCacheInfo) Close() error {
-	pool.NeighborCacheInfo.Put(a)
+func (a *NdaCacheInfo) attr() {}
+func (a *NdaCacheInfo) Close() error {
+	pool.NdaCacheInfo.Put(a)
 	return nil
 }
-func (a *NeighborCacheInfo) Set(v []byte) {
+func (a *NdaCacheInfo) Set(v []byte) {
 	panic("should never be called")
 }
-func (a *NeighborCacheInfo) Size() int {
+func (a *NdaCacheInfo) Size() int {
 	panic("should never be called")
 	return 0
 }
-func (a *NeighborCacheInfo) String() string {
+func (a *NdaCacheInfo) String() string {
 	return fmt.Sprintf("%+v", *a)
 }
-func (a *NeighborCacheInfo) Parse(b []byte) {
-	*a = *(*NeighborCacheInfo)(unsafe.Pointer(&b[0]))
+func (a *NdaCacheInfo) Parse(b []byte) {
+	*a = *(*NdaCacheInfo)(unsafe.Pointer(&b[0]))
 }
 
 type AddressFamily uint8
