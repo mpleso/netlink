@@ -1,3 +1,7 @@
+// Copyright 2015-2016 Platina Systems, Inc. All rights reserved.
+// Use of this source code is governed by a BSD-style license described in the
+// LICENSE file.
+
 package main
 
 import (
@@ -12,8 +16,8 @@ func main() {
 		panic(err)
 	}
 	go s.Listen()
-	for {
-		m := <-rx
+	for m := range rx {
 		fmt.Printf("%v\n", m)
+		m.Close()
 	}
 }

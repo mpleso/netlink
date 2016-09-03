@@ -5,6 +5,7 @@
 package netlink
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,72 @@ import (
 
 	"github.com/platinasystems/elib"
 )
+
+type attrer interface {
+	attr()
+}
+type attrTyper interface {
+	attrType()
+}
+type Byter interface {
+	Bytes() []byte
+}
+type IthStringer interface {
+	IthString(int) string
+}
+type Closer interface {
+	Close() error
+}
+type netlinkMessager interface {
+	netlinkMessage()
+}
+type Parser interface {
+	Parse([]byte)
+}
+type Runer interface {
+	Rune() rune
+}
+type Setter interface {
+	Set([]byte)
+}
+type Sizer interface {
+	Size() int
+}
+type Stringer interface {
+	String() string
+}
+type TxAdder interface {
+	TxAdd(*Socket)
+}
+type Uint8er interface {
+	Uint() uint8
+}
+type Uint32er interface {
+	Uint() uint32
+}
+type Uint64er interface {
+	Uint() uint64
+}
+
+type AttrType interface {
+	attrTyper
+	IthStringer
+}
+
+type Attr interface {
+	attrer
+	Setter
+	Sizer
+	Stringer
+}
+
+type Message interface {
+	netlinkMessager
+	Closer
+	Parser
+	Stringer
+	TxAdder
+}
 
 type Socket struct {
 	socket             int
@@ -36,13 +103,6 @@ func (n *Socket) reset_tx_buffer() {
 	}
 }
 
-type Message interface {
-	netlinkMessage()
-	String() string
-	Parse(b []byte)
-	TxAdd(s *Socket)
-}
-
 func (h *Header) String() (s string) {
 	s = fmt.Sprintf("%s: seq %d, len %d, pid %d", MessageType(h.Type).String(), h.Sequence, h.Len, h.Pid)
 	if h.Flags != 0 {
@@ -55,11 +115,23 @@ type NoopMessage struct {
 	Header Header
 }
 
+func NewNoopMessageBytes(b []byte) *NoopMessage {
+	m := pool.NoopMessage.Get().(*NoopMessage)
+	m.Parse(b)
+	return m
+}
+
 func (m *NoopMessage) netlinkMessage() {}
+func (m *NoopMessage) Close() error {
+	pool.NoopMessage.Put(m)
+	return nil
+}
 func (m *NoopMessage) Parse(b []byte) {
 	*m = *(*NoopMessage)(unsafe.Pointer(&b[0]))
 }
-func (m *NoopMessage) String() string { return m.Header.String() }
+func (m *NoopMessage) String() string {
+	return m.Header.String()
+}
 func (m *NoopMessage) TxAdd(s *Socket) {
 	m.Header.Type = NLMSG_NOOP
 	s.TxAddReq(&m.Header, 0)
@@ -69,9 +141,23 @@ type DoneMessage struct {
 	Header Header
 }
 
+func NewDoneMessageBytes(b []byte) *DoneMessage {
+	m := pool.DoneMessage.Get().(*DoneMessage)
+	m.Parse(b)
+	return m
+}
+
 func (m *DoneMessage) netlinkMessage() {}
-func (m *DoneMessage) Parse(b []byte)  { *m = *(*DoneMessage)(unsafe.Pointer(&b[0])) }
-func (m *DoneMessage) String() string  { return m.Header.String() }
+func (m *DoneMessage) Close() error {
+	pool.DoneMessage.Put(m)
+	return nil
+}
+func (m *DoneMessage) String() string {
+	return m.Header.String()
+}
+func (m *DoneMessage) Parse(b []byte) {
+	*m = *(*DoneMessage)(unsafe.Pointer(&b[0]))
+}
 func (m *DoneMessage) TxAdd(s *Socket) {
 	m.Header.Type = NLMSG_NOOP
 	s.TxAddReq(&m.Header, 0)
@@ -85,8 +171,26 @@ type ErrorMessage struct {
 	Req Header
 }
 
+func NewErrorMessageBytes(b []byte) *ErrorMessage {
+	m := pool.ErrorMessage.Get().(*ErrorMessage)
+	m.Parse(b)
+	return m
+}
+
 func (m *ErrorMessage) netlinkMessage() {}
-func (m *ErrorMessage) Parse(b []byte)  { *m = *(*ErrorMessage)(unsafe.Pointer(&b[0])) }
+func (m *ErrorMessage) Close() error {
+	pool.ErrorMessage.Put(m)
+	return nil
+}
+func (m *ErrorMessage) Parse(b []byte) {
+	*m = *(*ErrorMessage)(unsafe.Pointer(&b[0]))
+}
+func (m *ErrorMessage) String() string {
+	s := m.Header.String()
+	s += fmt.Sprintf(": %s, failed header: %s", syscall.Errno(-m.Errno),
+		m.Req.String())
+	return s
+}
 func (m *ErrorMessage) TxAdd(s *Socket) {
 	m.Header.Type = NLMSG_ERROR
 	b := s.TxAddReq(&m.Header, 4+SizeofHeader)
@@ -95,85 +199,123 @@ func (m *ErrorMessage) TxAdd(s *Socket) {
 	e.Req = m.Req
 }
 
-func (m *ErrorMessage) String() string {
-	s := m.Header.String()
-	s += fmt.Sprintf(": %s, failed header: %s", syscall.Errno(-m.Errno),
-		m.Req.String())
-	return s
+func freeAttrs(attrs []Attr) {
+	for i, a := range attrs {
+		if a != nil {
+			if method, found := a.(Closer); found {
+				method.Close()
+			}
+			attrs[i] = nil
+		}
+	}
 }
-
-type Attr interface {
-	attr()
-	String() string
-	// Size of instance of this attribute in bytes.
-	Size() int
-	// Set value of attribute byte array.
-	Set(v []byte)
-}
-
-type AttrType interface {
-	attrType()
-	String(i int) string
-}
-
-type HexStringAttr []byte
 
 type StringAttr string
 
-func (a StringAttr) attr()          {}
-func (a StringAttr) Size() int      { return len(a) + 1 }
-func (a StringAttr) Set(v []byte)   { copy(v, a); v = append(v, 0) }
-func (a StringAttr) String() string { return string(a) }
+func StringAttrBytes(b []byte) StringAttr {
+	return StringAttr(string(b))
+}
+func (a StringAttr) attr() {}
+func (a StringAttr) Size() int {
+	return len(a) + 1
+}
+func (a StringAttr) Set(v []byte) {
+	copy(v, a)
+	v = append(v, 0)
+}
+func (a StringAttr) String() string {
+	return string(a)
+}
 
 type Uint8Attr uint8
 
-func (a Uint8Attr) attr()          {}
-func (a Uint8Attr) Size() int      { return 1 }
-func (a Uint8Attr) Set(v []byte)   { v[0] = byte(a) }
-func (a Uint8Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
-
-type Uint8er interface {
-	Uint() uint8
+func (a Uint8Attr) attr() {}
+func (a Uint8Attr) Rune() rune {
+	return rune(a)
 }
-
-func (a Uint8Attr) Uint() uint8 { return uint8(a) }
-
-type Runer interface {
-	Rune() rune
+func (a Uint8Attr) Set(v []byte) {
+	v[0] = byte(a)
 }
-
-func (a Uint8Attr) Rune() rune { return rune(a) }
+func (a Uint8Attr) Size() int {
+	return 1
+}
+func (a Uint8Attr) String() string {
+	return strconv.FormatUint(uint64(a), 10)
+}
+func (a Uint8Attr) Uint() uint8 {
+	return uint8(a)
+}
 
 type Uint32Attr uint32
 
-func (a Uint32Attr) attr()          {}
-func (a Uint32Attr) Size() int      { return 4 }
-func (a Uint32Attr) Set(v []byte)   { *(*Uint32Attr)(unsafe.Pointer(&v[0])) = a }
-func (a Uint32Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
-
-type Uint32er interface {
-	Uint() uint32
+func Uint32AttrBytes(b []byte) Uint32Attr {
+	return Uint32Attr(*(*uint32)(unsafe.Pointer(&b[0])))
 }
 
-func (a Uint32Attr) Uint() uint32 { return uint32(a) }
+func (a Uint32Attr) attr() {}
+func (a Uint32Attr) Set(v []byte) {
+	*(*Uint32Attr)(unsafe.Pointer(&v[0])) = a
+}
+func (a Uint32Attr) Size() int {
+	return 4
+}
+func (a Uint32Attr) String() string {
+	return strconv.FormatUint(uint64(a), 10)
+}
+func (a Uint32Attr) Uint() uint32 {
+	return uint32(a)
+}
 
 type Uint64Attr uint64
 
-func (a Uint64Attr) attr()          {}
-func (a Uint64Attr) Size() int      { return 8 }
-func (a Uint64Attr) Set(v []byte)   { *(*Uint64Attr)(unsafe.Pointer(&v[0])) = a }
-func (a Uint64Attr) String() string { return strconv.FormatUint(uint64(a), 10) }
-
-type Uint64er interface {
-	Uint() uint64
+func Uint64AttrBytes(b []byte) Uint64Attr {
+	return Uint64Attr(*(*uint64)(unsafe.Pointer(&b[0])))
 }
 
-func (a Uint64Attr) Uint() uint64 { return uint64(a) }
+func (a Uint64Attr) attr() {}
+func (a Uint64Attr) Set(v []byte) {
+	*(*Uint64Attr)(unsafe.Pointer(&v[0])) = a
+}
+func (a Uint64Attr) Size() int {
+	return 8
+}
+func (a Uint64Attr) String() string {
+	return strconv.FormatUint(uint64(a), 10)
+}
+func (a Uint64Attr) Uint() uint64 {
+	return uint64(a)
+}
 
-func (a HexStringAttr) attr()          {}
-func (a HexStringAttr) Size() int      { return len(a) }
-func (a HexStringAttr) Set(v []byte)   { copy(v, a) }
-func (a HexStringAttr) String() string { return hex.EncodeToString(a) }
+type HexStringAttr bytes.Buffer
+
+func NewHexStringAttrBytes(b []byte) *HexStringAttr {
+	h := (*HexStringAttr)(pool.Bytes.Get().(*bytes.Buffer))
+	h.Parse(b)
+	return h
+}
+
+func (a *HexStringAttr) attr() {}
+func (a *HexStringAttr) Buffer() *bytes.Buffer {
+	return (*bytes.Buffer)(a)
+}
+func (a *HexStringAttr) Close() error {
+	buf := a.Buffer()
+	buf.Reset()
+	pool.Bytes.Put(buf)
+	return nil
+}
+func (a *HexStringAttr) Parse(b []byte) {
+	a.Buffer().Write(b)
+}
+func (a *HexStringAttr) Set(v []byte) {
+	copy(v, a.Buffer().Bytes())
+}
+func (a *HexStringAttr) Size() int {
+	return a.Buffer().Len()
+}
+func (a *HexStringAttr) String() string {
+	return hex.EncodeToString(a.Buffer().Bytes())
+}
 
 //go:generate go build github.com/platinasystems/elib/gentemplate
 //go:generate ./gentemplate -d Package=netlink -id Attr -d VecType=AttrVec -d Type=Attr github.com/platinasystems/elib/vec.tmpl
@@ -212,29 +354,64 @@ type AttrArray struct {
 	Type AttrType
 }
 
-func (a AttrArray) attr()        {}
-func (a AttrArray) Size() int    { return a.X.Size() }
-func (a AttrArray) Set(v []byte) { a.X.Set(v) }
-
-func (a AttrArray) String() string {
+func (a *AttrArray) attr() {}
+func (a *AttrArray) Close() error {
+	for i, x := range a.X {
+		if x != nil {
+			if method, found := x.(Closer); found {
+				method.Close()
+			}
+			a.X[i] = nil
+		}
+	}
+	if method, found := a.Type.(Closer); found {
+		method.Close()
+	}
+	pool.AttrArray.Put(a)
+	return nil
+}
+func (a *AttrArray) Set(v []byte) {
+	a.X.Set(v)
+}
+func (a *AttrArray) Size() int {
+	return a.X.Size()
+}
+func (a *AttrArray) String() string {
 	s := ""
 	for i := range a.X {
 		if a.X[i] != nil {
 			if len(s) > 0 {
 				s += ", "
 			}
-			s += fmt.Sprintf("%s: %s", a.Type.String(i), a.X[i].String())
+			s += fmt.Sprintf("%s: %s",
+				a.Type.IthString(i), a.X[i].String())
 		}
 	}
 	return s
 }
 
 type LinkStats [N_link_stat]uint32
-type LinkStats64 [N_link_stat]uint64
 
-func (a *LinkStats) attr()        {}
-func (a *LinkStats) Size() int    { return int(N_link_stat) * 4 }
-func (a *LinkStats) Set(v []byte) { *(*LinkStats)(unsafe.Pointer(&v[0])) = *a }
+func NewLinkStatsBytes(b []byte) *LinkStats {
+	a := pool.LinkStats.Get().(*LinkStats)
+	a.Parse(b)
+	return a
+}
+
+func (a *LinkStats) attr() {}
+func (a *LinkStats) Close() error {
+	pool.LinkStats.Put(a)
+	return nil
+}
+func (a *LinkStats) Parse(b []byte) {
+	*a = *(*LinkStats)(unsafe.Pointer(&b[0]))
+}
+func (a *LinkStats) Set(v []byte) {
+	*(*LinkStats)(unsafe.Pointer(&v[0])) = *a
+}
+func (a *LinkStats) Size() int {
+	return int(N_link_stat) * 4
+}
 func (a *LinkStats) String() string {
 	s := ""
 	for i := range a {
@@ -249,9 +426,28 @@ func (a *LinkStats) String() string {
 	return s
 }
 
-func (a *LinkStats64) attr()        {}
-func (a *LinkStats64) Size() int    { return int(N_link_stat) * 8 }
-func (a *LinkStats64) Set(v []byte) { *(*LinkStats64)(unsafe.Pointer(&v[0])) = *a }
+type LinkStats64 [N_link_stat]uint64
+
+func NewLinkStats64Bytes(b []byte) *LinkStats64 {
+	a := pool.LinkStats64.Get().(*LinkStats64)
+	a.Parse(b)
+	return a
+}
+
+func (a *LinkStats64) attr() {}
+func (a *LinkStats64) Close() error {
+	pool.LinkStats64.Put(a)
+	return nil
+}
+func (a *LinkStats64) Parse(b []byte) {
+	*a = *(*LinkStats64)(unsafe.Pointer(&b[0]))
+}
+func (a *LinkStats64) Set(v []byte) {
+	*(*LinkStats64)(unsafe.Pointer(&v[0])) = *a
+}
+func (a *LinkStats64) Size() int {
+	return int(N_link_stat) * 8
+}
 func (a *LinkStats64) String() string {
 	s := ""
 	for i := range a {
@@ -272,9 +468,63 @@ type IfInfoMessage struct {
 	Attrs [IFLA_MAX]Attr
 }
 
-func (m *IfInfoMessage) netlinkMessage() {}
+func NewIfInfoMessageBytes(b []byte) *IfInfoMessage {
+	m := pool.IfInfoMessage.Get().(*IfInfoMessage)
+	m.Parse(b)
+	return m
+}
 
 const attrFormat = "\n  %-16s %s"
+
+func (m *IfInfoMessage) netlinkMessage() {}
+
+func (m *IfInfoMessage) Close() error {
+	freeAttrs(m.Attrs[:])
+	pool.IfInfoMessage.Put(m)
+	return nil
+}
+
+func (m *IfInfoMessage) Parse(b []byte) {
+	p := (*IfInfoMessage)(unsafe.Pointer(&b[0]))
+	m.Header = p.Header
+	m.IfInfomsg = p.IfInfomsg
+	b = b[SizeofHeader+SizeofIfInfomsg:]
+	for i := 0; i < len(b); {
+		n, v, next_i := nextAttr(b, i)
+		i = next_i
+		switch t := IfInfoAttrKind(n.Kind); t {
+		case IFLA_IFNAME, IFLA_QDISC:
+			m.Attrs[n.Kind] = StringAttrBytes(v[:len(v)-1])
+		case IFLA_MTU, IFLA_LINK, IFLA_MASTER,
+			IFLA_WEIGHT,
+			IFLA_NET_NS_PID, IFLA_NET_NS_FD, IFLA_LINK_NETNSID,
+			IFLA_EXT_MASK, IFLA_PROMISCUITY,
+			IFLA_NUM_TX_QUEUES, IFLA_NUM_RX_QUEUES, IFLA_TXQLEN,
+			IFLA_GSO_MAX_SEGS, IFLA_GSO_MAX_SIZE,
+			IFLA_CARRIER_CHANGES,
+			IFLA_GROUP:
+			m.Attrs[n.Kind] = Uint32AttrBytes(v)
+		case IFLA_CARRIER, IFLA_LINKMODE, IFLA_PROTO_DOWN:
+			m.Attrs[n.Kind] = Uint8Attr(v[0])
+		case IFLA_OPERSTATE:
+			m.Attrs[n.Kind] = IfOperState(v[0])
+		case IFLA_STATS:
+			m.Attrs[n.Kind] = NewLinkStatsBytes(v)
+		case IFLA_STATS64:
+			m.Attrs[n.Kind] = NewLinkStats64Bytes(v)
+		case IFLA_AF_SPEC:
+			m.Attrs[n.Kind] = parse_af_spec(v)
+		case IFLA_ADDRESS, IFLA_BROADCAST:
+			m.Attrs[n.Kind] = afAddr(AF_UNSPEC, v)
+		default:
+			if t < IFLA_MAX {
+				m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
+			} else {
+				panic(fmt.Errorf("%#v: unknown attr", n.Kind))
+			}
+		}
+	}
+}
 
 func (m *IfInfoMessage) String() string {
 	s := m.Header.String()
@@ -294,48 +544,6 @@ func (m *IfInfoMessage) String() string {
 	return s
 }
 
-func (m *IfInfoMessage) Parse(b []byte) {
-	p := (*IfInfoMessage)(unsafe.Pointer(&b[0]))
-	m.Header = p.Header
-	m.IfInfomsg = p.IfInfomsg
-	b = b[SizeofHeader+SizeofIfInfomsg:]
-	for i := 0; i < len(b); {
-		n, v, next_i := nextAttr(b, i)
-		i = next_i
-		switch t := IfInfoAttrKind(n.Kind); t {
-		case IFLA_IFNAME, IFLA_QDISC:
-			m.Attrs[n.Kind] = StringAttr(string(v[:len(v)-1]))
-		case IFLA_MTU, IFLA_LINK, IFLA_MASTER,
-			IFLA_WEIGHT,
-			IFLA_NET_NS_PID, IFLA_NET_NS_FD, IFLA_LINK_NETNSID,
-			IFLA_EXT_MASK, IFLA_PROMISCUITY,
-			IFLA_NUM_TX_QUEUES, IFLA_NUM_RX_QUEUES, IFLA_TXQLEN,
-			IFLA_GSO_MAX_SEGS, IFLA_GSO_MAX_SIZE,
-			IFLA_CARRIER_CHANGES,
-			IFLA_GROUP:
-			m.Attrs[n.Kind] = Uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
-		case IFLA_CARRIER, IFLA_LINKMODE, IFLA_PROTO_DOWN:
-			m.Attrs[n.Kind] = Uint8Attr(*(*uint8)(unsafe.Pointer(&v[0])))
-		case IFLA_OPERSTATE:
-			m.Attrs[n.Kind] = IfOperState(v[0])
-		case IFLA_STATS:
-			m.Attrs[n.Kind] = (*LinkStats)(unsafe.Pointer(&v[0]))
-		case IFLA_STATS64:
-			m.Attrs[n.Kind] = (*LinkStats64)(unsafe.Pointer(&v[0]))
-		case IFLA_AF_SPEC:
-			m.Attrs[n.Kind] = parse_af_spec(v)
-		case IFLA_ADDRESS, IFLA_BROADCAST:
-			m.Attrs[n.Kind] = afAddr(AF_UNSPEC, v)
-		default:
-			if t < IFLA_MAX {
-				m.Attrs[n.Kind] = HexStringAttr(v)
-			} else {
-				panic(fmt.Errorf("%#v: unknown attr", n.Kind))
-			}
-		}
-	}
-}
-
 func (m *IfInfoMessage) TxAdd(s *Socket) {
 	as := AttrVec(m.Attrs[:])
 	l := as.Size()
@@ -347,15 +555,27 @@ func (m *IfInfoMessage) TxAdd(s *Socket) {
 
 type Ip4DevConf [IPV4_DEVCONF_MAX]uint32
 
+func NewIp4DevConfBytes(b []byte) *Ip4DevConf {
+	a := pool.Ip4DevConf.Get().(*Ip4DevConf)
+	a.Parse(b)
+	return a
+}
+
 func (a *Ip4DevConf) attr() {}
-func (a *Ip4DevConf) Size() int {
-	panic("not implemented")
-	return 0
+func (a *Ip4DevConf) Close() error {
+	pool.Ip4DevConf.Put(a)
+	return nil
+}
+func (a *Ip4DevConf) Parse(b []byte) {
+	*a = *(*Ip4DevConf)(unsafe.Pointer(&b[0]))
 }
 func (a *Ip4DevConf) Set(v []byte) {
 	panic("not implemented")
 }
-
+func (a *Ip4DevConf) Size() int {
+	panic("not implemented")
+	return 0
+}
 func (a *Ip4DevConf) String() string {
 	s := ""
 	for i := range a {
@@ -371,7 +591,8 @@ func (a *Ip4DevConf) String() string {
 }
 
 func parse_ip4_af_spec(b []byte) *AttrArray {
-	as := &AttrArray{Type: &Ip4IfAttrType{}}
+	as := pool.AttrArray.Get().(*AttrArray)
+	as.Type = NewIp4IfAttrType()
 	for i := 0; i < len(b); {
 		n, v, next_i := nextAttr(b, i)
 		i = next_i
@@ -379,9 +600,9 @@ func parse_ip4_af_spec(b []byte) *AttrArray {
 		as.X.Validate(uint(t))
 		switch t {
 		case IFLA_INET_CONF:
-			as.X[t] = (*Ip4DevConf)(unsafe.Pointer(&v[0]))
+			as.X[t] = NewIp4DevConfBytes(v)
 		default:
-			as.X[t] = HexStringAttr(v)
+			as.X[t] = NewHexStringAttrBytes(v)
 		}
 	}
 	return as
@@ -389,13 +610,26 @@ func parse_ip4_af_spec(b []byte) *AttrArray {
 
 type Ip6DevConf [IPV6_DEVCONF_MAX]uint32
 
+func NewIp6DevConfBytes(b []byte) *Ip6DevConf {
+	a := pool.Ip6DevConf.Get().(*Ip6DevConf)
+	a.Parse(b)
+	return a
+}
+
 func (a *Ip6DevConf) attr() {}
-func (a *Ip6DevConf) Size() int {
-	panic("not implemented")
-	return 0
+func (a *Ip6DevConf) Close() error {
+	pool.Ip6DevConf.Put(a)
+	return nil
+}
+func (a *Ip6DevConf) Parse(b []byte) {
+	*a = *(*Ip6DevConf)(unsafe.Pointer(&b[0]))
 }
 func (a *Ip6DevConf) Set(v []byte) {
 	panic("not implemented")
+}
+func (a *Ip6DevConf) Size() int {
+	panic("not implemented")
+	return 0
 }
 func (a *Ip6DevConf) String() string {
 	s := ""
@@ -412,7 +646,8 @@ func (a *Ip6DevConf) String() string {
 }
 
 func parse_ip6_af_spec(b []byte) *AttrArray {
-	as := &AttrArray{Type: &Ip6IfAttrType{}}
+	as := pool.AttrArray.Get().(*AttrArray)
+	as.Type = NewIp6IfAttrType()
 	for i := 0; i < len(b); {
 		n, v, next_i := nextAttr(b, i)
 		i = next_i
@@ -420,16 +655,17 @@ func parse_ip6_af_spec(b []byte) *AttrArray {
 		as.X.Validate(uint(t))
 		switch t {
 		case IFLA_INET6_CONF:
-			as.X[t] = (*Ip6DevConf)(unsafe.Pointer(&v[0]))
+			as.X[t] = NewIp6DevConfBytes(v)
 		default:
-			as.X[t] = HexStringAttr(v)
+			as.X[t] = NewHexStringAttrBytes(v)
 		}
 	}
 	return as
 }
 
 func parse_af_spec(b []byte) *AttrArray {
-	as := &AttrArray{Type: &AddressFamilyAttrType{}}
+	as := pool.AttrArray.Get().(*AttrArray)
+	as.Type = NewAddressFamilyAttrType()
 	for i := 0; i < len(b); {
 		n, v, next_i := nextAttr(b, i)
 		i = next_i
@@ -453,7 +689,43 @@ type IfAddrMessage struct {
 	Attrs [IFA_MAX]Attr
 }
 
+func NewIfAddrMessageBytes(b []byte) *IfAddrMessage {
+	m := pool.IfAddrMessage.Get().(*IfAddrMessage)
+	m.Parse(b)
+	return m
+}
+
 func (m *IfAddrMessage) netlinkMessage() {}
+
+func (m *IfAddrMessage) Close() error {
+	freeAttrs(m.Attrs[:])
+	pool.IfAddrMessage.Put(m)
+	return nil
+}
+
+func (m *IfAddrMessage) Parse(b []byte) {
+	p := (*IfAddrMessage)(unsafe.Pointer(&b[0]))
+	m.Header = p.Header
+	m.IfAddrmsg = p.IfAddrmsg
+	b = b[SizeofHeader+SizeofIfAddrmsg:]
+	for i := 0; i < len(b); {
+		n, v, next_i := nextAttr(b, i)
+		i = next_i
+		switch IfAddrAttrKind(n.Kind) {
+		case IFA_LABEL:
+			m.Attrs[n.Kind] = StringAttrBytes(v[:len(v)-1])
+		case IFA_FLAGS:
+			m.Attrs[n.Kind] = IfAddrFlagAttrBytes(v)
+		case IFA_CACHEINFO:
+			m.Attrs[n.Kind] = NewIfAddrCacheInfoBytes(v)
+		case IFA_ADDRESS, IFA_BROADCAST, IFA_LOCAL:
+			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
+		default:
+			m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
+		}
+	}
+	return
+}
 
 func (m *IfAddrMessage) String() string {
 	s := m.Header.String()
@@ -468,30 +740,6 @@ func (m *IfAddrMessage) String() string {
 	return s
 }
 
-func (m *IfAddrMessage) Parse(b []byte) {
-	p := (*IfAddrMessage)(unsafe.Pointer(&b[0]))
-	m.Header = p.Header
-	m.IfAddrmsg = p.IfAddrmsg
-	b = b[SizeofHeader+SizeofIfAddrmsg:]
-	for i := 0; i < len(b); {
-		n, v, next_i := nextAttr(b, i)
-		i = next_i
-		switch IfAddrAttrKind(n.Kind) {
-		case IFA_LABEL:
-			m.Attrs[n.Kind] = StringAttr(v[:len(v)-1])
-		case IFA_FLAGS:
-			m.Attrs[n.Kind] = *(*IfAddrFlagAttr)(unsafe.Pointer(&v[0]))
-		case IFA_CACHEINFO:
-			m.Attrs[n.Kind] = (*IfAddrCacheInfo)(unsafe.Pointer(&v[0]))
-		case IFA_ADDRESS, IFA_BROADCAST, IFA_LOCAL:
-			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
-		default:
-			m.Attrs[n.Kind] = HexStringAttr(v)
-		}
-	}
-	return
-}
-
 func (m *IfAddrMessage) TxAdd(s *Socket) {
 	as := AttrVec(m.Attrs[:])
 	l := as.Size()
@@ -503,10 +751,20 @@ func (m *IfAddrMessage) TxAdd(s *Socket) {
 
 type IfAddrFlagAttr uint32
 
-func (a IfAddrFlagAttr) attr()          {}
-func (a IfAddrFlagAttr) Size() int      { return 4 }
-func (a IfAddrFlagAttr) Set(v []byte)   { *(*IfAddrFlagAttr)(unsafe.Pointer(&v[0])) = a }
-func (a IfAddrFlagAttr) String() string { return IfAddrFlags(a).String() }
+func IfAddrFlagAttrBytes(b []byte) IfAddrFlagAttr {
+	return *(*IfAddrFlagAttr)(unsafe.Pointer(&b[0]))
+}
+
+func (a IfAddrFlagAttr) attr() {}
+func (a IfAddrFlagAttr) Size() int {
+	return 4
+}
+func (a IfAddrFlagAttr) Set(v []byte) {
+	*(*IfAddrFlagAttr)(unsafe.Pointer(&v[0])) = a
+}
+func (a IfAddrFlagAttr) String() string {
+	return IfAddrFlags(a).String()
+}
 
 type RouteMessage struct {
 	Header Header
@@ -514,7 +772,39 @@ type RouteMessage struct {
 	Attrs [RTA_MAX]Attr
 }
 
+func NewRouteMessageBytes(b []byte) *RouteMessage {
+	m := pool.RouteMessage.Get().(*RouteMessage)
+	m.Parse(b)
+	return m
+}
+
 func (m *RouteMessage) netlinkMessage() {}
+
+func (m *RouteMessage) Close() error {
+	freeAttrs(m.Attrs[:])
+	pool.RouteMessage.Put(m)
+	return nil
+}
+
+func (m *RouteMessage) Parse(b []byte) {
+	p := (*RouteMessage)(unsafe.Pointer(&b[0]))
+	m.Header = p.Header
+	m.Rtmsg = p.Rtmsg
+	b = b[SizeofHeader+SizeofRtmsg:]
+	for i := 0; i < len(b); {
+		n, v, next_i := nextAttr(b, i)
+		i = next_i
+		switch RouteAttrKind(n.Kind) {
+		case RTA_DST, RTA_SRC, RTA_PREFSRC, RTA_GATEWAY:
+			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
+		case RTA_TABLE, RTA_OIF, RTA_PRIORITY:
+			m.Attrs[n.Kind] = Uint32AttrBytes(v)
+		default:
+			m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
+		}
+	}
+	return
+}
 
 func (m *RouteMessage) String() string {
 	s := m.Header.String()
@@ -532,26 +822,6 @@ func (m *RouteMessage) String() string {
 	return s
 }
 
-func (m *RouteMessage) Parse(b []byte) {
-	p := (*RouteMessage)(unsafe.Pointer(&b[0]))
-	m.Header = p.Header
-	m.Rtmsg = p.Rtmsg
-	b = b[SizeofHeader+SizeofRtmsg:]
-	for i := 0; i < len(b); {
-		n, v, next_i := nextAttr(b, i)
-		i = next_i
-		switch RouteAttrKind(n.Kind) {
-		case RTA_DST, RTA_SRC, RTA_PREFSRC, RTA_GATEWAY:
-			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
-		case RTA_TABLE, RTA_OIF, RTA_PRIORITY:
-			m.Attrs[n.Kind] = Uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
-		default:
-			m.Attrs[n.Kind] = HexStringAttr(v)
-		}
-	}
-	return
-}
-
 func (m *RouteMessage) TxAdd(s *Socket) {
 	as := AttrVec(m.Attrs[:])
 	l := as.Size()
@@ -567,26 +837,22 @@ type NeighborMessage struct {
 	Attrs [NDA_MAX]Attr
 }
 
+func NewNeighborMessageBytes(b []byte) *NeighborMessage {
+	m := pool.NeighborMessage.Get().(*NeighborMessage)
+	m.Parse(b)
+	return m
+}
+
 func (m *NeighborMessage) netlinkMessage() {}
 
 func (m *NeighborMessage) AttrBytes(kind NeighborAttrKind) []byte {
 	return m.Attrs[kind].(Byter).Bytes()
 }
 
-func (m *NeighborMessage) String() string {
-	s := m.Header.String()
-	s += fmt.Sprintf(" Index: %d, Family: %s, Type %s, State %s",
-		m.Index, AddressFamily(m.Family),
-		RouteType(m.Type), NeighborState(m.State))
-	if m.Flags != 0 {
-		s += fmt.Sprintf(", Flags %s", NeighborFlags(m.Flags))
-	}
-	for i := range m.Attrs {
-		if m.Attrs[i] != nil {
-			s += fmt.Sprintf(attrFormat, NeighborAttrKind(i), m.Attrs[i])
-		}
-	}
-	return s
+func (m *NeighborMessage) Close() error {
+	freeAttrs(m.Attrs[:])
+	pool.NeighborMessage.Put(m)
+	return nil
 }
 
 func (m *NeighborMessage) Parse(b []byte) {
@@ -603,12 +869,28 @@ func (m *NeighborMessage) Parse(b []byte) {
 		case NDA_LLADDR:
 			m.Attrs[n.Kind] = afAddr(AF_UNSPEC, v)
 		case NDA_PROBES:
-			m.Attrs[n.Kind] = Uint32Attr(*(*uint32)(unsafe.Pointer(&v[0])))
+			m.Attrs[n.Kind] = Uint32AttrBytes(v)
 		default:
-			m.Attrs[n.Kind] = HexStringAttr(v)
+			m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
 		}
 	}
 	return
+}
+
+func (m *NeighborMessage) String() string {
+	s := m.Header.String()
+	s += fmt.Sprintf(" Index: %d, Family: %s, Type %s, State %s",
+		m.Index, AddressFamily(m.Family),
+		RouteType(m.Type), NeighborState(m.State))
+	if m.Flags != 0 {
+		s += fmt.Sprintf(", Flags %s", NeighborFlags(m.Flags))
+	}
+	for i := range m.Attrs {
+		if m.Attrs[i] != nil {
+			s += fmt.Sprintf(attrFormat, NeighborAttrKind(i), m.Attrs[i])
+		}
+	}
+	return s
 }
 
 func (m *NeighborMessage) TxAdd(s *Socket) {
@@ -698,12 +980,15 @@ type GenMessage struct {
 const SizeofGenMessage = 1
 
 func (m *GenMessage) netlinkMessage() {}
+func (m *GenMessage) Close() error {
+	pool.GenMessage.Put(m)
+	return nil
+}
 func (m *GenMessage) Parse(b []byte) {
 	p := (*GenMessage)(unsafe.Pointer(&b[0]))
 	m.Header = p.Header
 	m.AddressFamily = p.AddressFamily
 }
-
 func (m *GenMessage) String() string {
 	return m.Header.String() + " " + m.AddressFamily.String()
 
@@ -736,24 +1021,23 @@ func (s *Socket) rxDispatch(h *Header, msg []byte) {
 	var errMsg *ErrorMessage
 	switch h.Type {
 	case NLMSG_NOOP:
-		m = &NoopMessage{}
+		m = NewNoopMessageBytes(msg)
 	case NLMSG_ERROR:
-		errMsg = &ErrorMessage{}
+		errMsg = NewErrorMessageBytes(msg)
 		m = errMsg
 	case NLMSG_DONE:
-		m = &DoneMessage{}
+		m = NewDoneMessageBytes(msg)
 	case RTM_NEWLINK, RTM_DELLINK, RTM_GETLINK, RTM_SETLINK:
-		m = &IfInfoMessage{}
+		m = NewIfInfoMessageBytes(msg)
 	case RTM_NEWADDR, RTM_DELADDR, RTM_GETADDR:
-		m = &IfAddrMessage{}
+		m = NewIfAddrMessageBytes(msg)
 	case RTM_NEWROUTE, RTM_DELROUTE, RTM_GETROUTE:
-		m = &RouteMessage{}
+		m = NewRouteMessageBytes(msg)
 	case RTM_NEWNEIGH, RTM_DELNEIGH, RTM_GETNEIGH:
-		m = &NeighborMessage{}
+		m = NewNeighborMessageBytes(msg)
 	default:
 		panic("unhandled message " + h.Type.String())
 	}
-	m.Parse(append([]byte{}, msg...))
 	if errMsg != nil && errMsg.Req.Pid == s.pid {
 		s.Lock()
 		defer s.Unlock()
@@ -912,7 +1196,7 @@ func (s *Socket) Listen(reqs ...ListenReq) {
 		if r.MsgType == NLMSG_NOOP {
 			continue
 		}
-		m := &GenMessage{}
+		m := pool.GenMessage.Get().(*GenMessage)
 		m.Type = r.MsgType
 		m.Flags = NLM_F_DUMP
 		m.AddressFamily = r.AddressFamily

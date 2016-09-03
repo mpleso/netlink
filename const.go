@@ -7,6 +7,7 @@ package netlink
 import (
 	"fmt"
 	"net"
+	"unsafe"
 
 	"github.com/platinasystems/elib"
 )
@@ -20,6 +21,8 @@ type Header struct {
 }
 
 const SizeofHeader = 16
+
+type Empty struct{}
 
 type MsgType uint16
 
@@ -636,25 +639,39 @@ var afNames = []string{
 	AF_VSOCK:      "VSOCK",
 }
 
-func (af AddressFamily) String() string { return elib.Stringer(afNames, int(af)) }
-func (af AddressFamily) Uint() uint8    { return uint8(af) }
+func (af AddressFamily) String() string {
+	return elib.Stringer(afNames, int(af))
+}
+func (af AddressFamily) Uint() uint8 {
+	return uint8(af)
+}
 
-type AddressFamilyAttrType struct{}
+type AddressFamilyAttrType Empty
 
-func (t *AddressFamilyAttrType) String(i int) string { return elib.Stringer(afNames, i) }
-func (t *AddressFamilyAttrType) attrType()           {}
+func NewAddressFamilyAttrType() *AddressFamilyAttrType {
+	return (*AddressFamilyAttrType)(pool.Empty.Get().(*Empty))
+}
+
+func (t *AddressFamilyAttrType) attrType() {}
+func (t *AddressFamilyAttrType) Close() error {
+	pool.Empty.Put((*Empty)(t))
+	return nil
+}
+func (t *AddressFamilyAttrType) IthString(i int) string {
+	return elib.Stringer(afNames, i)
+}
 
 type AddressFamilyAddress interface {
 	String([]byte) string
 }
 
-type Byter interface {
-	Bytes() []byte
-}
-
 type Ip4Address [4]byte
-type Ip6Address [16]byte
-type EthernetAddress [6]byte
+
+func NewIp4AddressBytes(b []byte) *Ip4Address {
+	a := pool.Ip4Address.Get().(*Ip4Address)
+	a.Parse(b)
+	return a
+}
 
 func (a *Ip4Address) attr()         {}
 func (a *Ip4Address) Bytes() []byte { return a[:] }
@@ -663,6 +680,22 @@ func (a *Ip4Address) Set(v []byte)  { copy(v, a[:]) }
 func (a *Ip4Address) String() string {
 	return fmt.Sprintf("%d.%d.%d.%d", a[0], a[1], a[2], a[3])
 }
+func (a *Ip4Address) Parse(b []byte) {
+	copy(a[:], b[:4])
+}
+func (a *Ip4Address) Close() error {
+	pool.Ip4Address.Put(a)
+	return nil
+}
+
+type Ip6Address [16]byte
+
+func NewIp6AddressBytes(b []byte) *Ip6Address {
+	a := pool.Ip6Address.Get().(*Ip6Address)
+	a.Parse(b)
+	return a
+}
+
 func (a *Ip6Address) attr()         {}
 func (a *Ip6Address) Bytes() []byte { return a[:] }
 func (a *Ip6Address) Size() int     { return len(a) }
@@ -670,27 +703,46 @@ func (a *Ip6Address) Set(v []byte)  { copy(v, a[:]) }
 func (a *Ip6Address) String() string {
 	return net.IP(a[:]).String()
 }
+func (a *Ip6Address) Parse(b []byte) {
+	copy(a[:], b[:16])
+}
+func (a *Ip6Address) Close() error {
+	pool.Ip6Address.Put(a)
+	return nil
+}
+
+type EthernetAddress [6]byte
+
+func NewEthernetAddressBytes(b []byte) *EthernetAddress {
+	a := pool.EthernetAddress.Get().(*EthernetAddress)
+	a.Parse(b)
+	return a
+}
+
 func (a *EthernetAddress) attr()         {}
 func (a *EthernetAddress) Bytes() []byte { return a[:] }
 func (a *EthernetAddress) Size() int     { return len(a) }
 func (a *EthernetAddress) Set(v []byte)  { copy(v, a[:]) }
 func (a *EthernetAddress) String() string {
-	return fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x", a[0], a[1], a[2], a[3], a[4], a[5])
+	return fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x",
+		a[0], a[1], a[2], a[3], a[4], a[5])
+}
+func (a *EthernetAddress) Parse(b []byte) {
+	copy(a[:], b[:6])
+}
+func (a *EthernetAddress) Close() error {
+	pool.EthernetAddress.Put(a)
+	return nil
 }
 
 func afAddr(af AddressFamily, b []byte) Attr {
 	switch {
 	case af == AF_INET || len(b) == 4:
-		return &Ip4Address{b[0], b[1], b[2], b[3]}
+		return NewIp4AddressBytes(b)
 	case af == AF_INET6 || len(b) == 16:
-		return &Ip6Address{
-			b[0x0], b[0x1], b[0x2], b[0x3],
-			b[0x4], b[0x5], b[0x6], b[0x3],
-			b[0x8], b[0x9], b[0xa], b[0xb],
-			b[0xc], b[0xd], b[0xe], b[0xf],
-		}
+		return NewIp6AddressBytes(b)
 	case af == AF_UNSPEC || len(b) == 6:
-		return &EthernetAddress{b[0], b[1], b[2], b[3], b[4], b[5]}
+		return NewEthernetAddressBytes(b)
 	default:
 		panic(fmt.Errorf("unrecognized addr: %v", b))
 	}
@@ -1101,16 +1153,29 @@ type IfAddrCacheInfo struct {
 	UpdatedTimestamp uint32 /* updated timestamp, hundredths of seconds */
 }
 
+func NewIfAddrCacheInfoBytes(b []byte) *IfAddrCacheInfo {
+	a := pool.IfAddrCacheInfo.Get().(*IfAddrCacheInfo)
+	a.Parse(b)
+	return a
+}
+
 func (a *IfAddrCacheInfo) attr() {}
-func (a *IfAddrCacheInfo) Size() int {
-	panic("should never be called")
-	return 0
+func (a *IfAddrCacheInfo) Close() error {
+	pool.IfAddrCacheInfo.Put(a)
+	return nil
 }
 func (a *IfAddrCacheInfo) Set(v []byte) {
 	panic("should never be called")
 }
+func (a *IfAddrCacheInfo) Size() int {
+	panic("should never be called")
+	return 0
+}
 func (a *IfAddrCacheInfo) String() string {
 	return fmt.Sprintf("%+v", *a)
+}
+func (a *IfAddrCacheInfo) Parse(b []byte) {
+	*a = *(*IfAddrCacheInfo)(unsafe.Pointer(&b[0]))
 }
 
 const (
@@ -1148,17 +1213,46 @@ var ip6IfAttrTypeNames = []string{
 }
 
 type Ip4IfAttrKind int
+
+func (t Ip4IfAttrKind) String() string {
+	return elib.Stringer(ip4IfAttrTypeNames, int(t))
+}
+
 type Ip6IfAttrKind int
+
+func (t Ip6IfAttrKind) String() string {
+	return elib.Stringer(ip6IfAttrTypeNames, int(t))
+}
+
 type Ip4IfAttrType struct{}
+
+func NewIp4IfAttrType() *Ip4IfAttrType {
+	return (*Ip4IfAttrType)(pool.Empty.Get().(*Empty))
+}
+
+func (t *Ip4IfAttrType) attrType() {}
+func (t *Ip4IfAttrType) Close() error {
+	pool.Empty.Put((*Empty)(t))
+	return nil
+}
+func (t *Ip4IfAttrType) IthString(i int) string {
+	return elib.Stringer(ip4IfAttrTypeNames, i)
+}
+
 type Ip6IfAttrType struct{}
 
-func (t Ip4IfAttrKind) String() string { return elib.Stringer(ip4IfAttrTypeNames, int(t)) }
-func (t Ip6IfAttrKind) String() string { return elib.Stringer(ip6IfAttrTypeNames, int(t)) }
+func NewIp6IfAttrType() *Ip4IfAttrType {
+	return (*Ip4IfAttrType)(pool.Empty.Get().(*Empty))
+}
 
-func (t *Ip4IfAttrType) String(i int) string { return elib.Stringer(ip4IfAttrTypeNames, i) }
-func (t *Ip4IfAttrType) attrType()           {}
-func (t *Ip6IfAttrType) String(i int) string { return elib.Stringer(ip6IfAttrTypeNames, i) }
-func (t *Ip6IfAttrType) attrType()           {}
+func (t *Ip6IfAttrType) attrType() {}
+func (t *Ip6IfAttrType) Close() error {
+	pool.Empty.Put((*Empty)(t))
+	return nil
+}
+func (t *Ip6IfAttrType) IthString(i int) string {
+	return elib.Stringer(ip6IfAttrTypeNames, i)
+}
 
 type Ip4DevConfKind int
 type Ip6DevConfKind int
@@ -1320,10 +1414,10 @@ var ip6DevConfKindNames = []string{
 func (t Ip4DevConfKind) String() string { return elib.Stringer(ip4DevConfKindNames, int(t)) }
 func (t Ip6DevConfKind) String() string { return elib.Stringer(ip6DevConfKindNames, int(t)) }
 
-func (t *Ip4DevConfType) String(i int) string { return elib.Stringer(ip4DevConfKindNames, i) }
-func (t *Ip4DevConfType) attrType()           {}
-func (t *Ip6DevConfType) String(i int) string { return elib.Stringer(ip6DevConfKindNames, i) }
-func (t *Ip6DevConfType) attrType()           {}
+func (t *Ip4DevConfType) IthString(i int) string { return elib.Stringer(ip4DevConfKindNames, i) }
+func (t *Ip4DevConfType) attrType()              {}
+func (t *Ip6DevConfType) IthString(i int) string { return elib.Stringer(ip6DevConfKindNames, i) }
+func (t *Ip6DevConfType) attrType()              {}
 
 type LinkStatType int
 
