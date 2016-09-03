@@ -10,25 +10,26 @@ import (
 )
 
 var pool = struct {
-	Empty           sync.Pool
-	DoneMessage     sync.Pool
-	ErrorMessage    sync.Pool
-	GenMessage      sync.Pool
-	IfAddrMessage   sync.Pool
-	IfInfoMessage   sync.Pool
-	NeighborMessage sync.Pool
-	NoopMessage     sync.Pool
-	RouteMessage    sync.Pool
-	AttrArray       sync.Pool
-	LinkStats       sync.Pool
-	LinkStats64     sync.Pool
-	IfAddrCacheInfo sync.Pool
-	Ip4Address      sync.Pool
-	Ip6Address      sync.Pool
-	EthernetAddress sync.Pool
-	Ip4DevConf      sync.Pool
-	Ip6DevConf      sync.Pool
-	Bytes           sync.Pool
+	Empty             sync.Pool
+	DoneMessage       sync.Pool
+	ErrorMessage      sync.Pool
+	GenMessage        sync.Pool
+	IfAddrMessage     sync.Pool
+	IfInfoMessage     sync.Pool
+	NeighborMessage   sync.Pool
+	NoopMessage       sync.Pool
+	RouteMessage      sync.Pool
+	AttrArray         sync.Pool
+	LinkStats         sync.Pool
+	LinkStats64       sync.Pool
+	IfAddrCacheInfo   sync.Pool
+	Ip4Address        sync.Pool
+	Ip6Address        sync.Pool
+	EthernetAddress   sync.Pool
+	Ip4DevConf        sync.Pool
+	Ip6DevConf        sync.Pool
+	NeighborCacheInfo sync.Pool
+	Bytes             sync.Pool
 }{
 	Empty: sync.Pool{
 		New: func() interface{} {
@@ -118,6 +119,11 @@ var pool = struct {
 	Ip6DevConf: sync.Pool{
 		New: func() interface{} {
 			return new(Ip6DevConf)
+		},
+	},
+	NeighborCacheInfo: sync.Pool{
+		New: func() interface{} {
+			return new(NeighborCacheInfo)
 		},
 	},
 	Bytes: sync.Pool{

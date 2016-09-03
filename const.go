@@ -498,7 +498,9 @@ var neighborAttrKindNames = []string{
 	NDA_MASTER:    "NDA_MASTER",
 }
 
-func (x NeighborAttrKind) String() string { return elib.Stringer(neighborAttrKindNames, int(x)) }
+func (x NeighborAttrKind) String() string {
+	return elib.Stringer(neighborAttrKindNames, int(x))
+}
 
 type NeighborFlags int
 
@@ -520,7 +522,9 @@ var neighborFlagNames = []string{
 	NTF_ROUTER:      "ROUTER",
 }
 
-func (x NeighborFlags) String() string { return elib.FlagStringer(neighborFlagNames, elib.Word(x)) }
+func (x NeighborFlags) String() string {
+	return elib.FlagStringer(neighborFlagNames, elib.Word(x))
+}
 
 type NeighborState uint16
 
@@ -547,7 +551,41 @@ var neighborStateNames = []string{
 	NUD_PERMANENT_BIT:  "PERMANENT",
 }
 
-func (x NeighborState) String() string { return elib.FlagStringer(neighborStateNames, elib.Word(x)) }
+func (x NeighborState) String() string {
+	return elib.FlagStringer(neighborStateNames, elib.Word(x))
+}
+
+type NeighborCacheInfo struct {
+	Confirmed uint32
+	Used      uint32
+	Updated   uint32
+	RefCnt    uint32
+}
+
+func NewNeighborCacheInfoBytes(b []byte) *NeighborCacheInfo {
+	a := pool.NeighborCacheInfo.Get().(*NeighborCacheInfo)
+	a.Parse(b)
+	return a
+}
+
+func (a *NeighborCacheInfo) attr() {}
+func (a *NeighborCacheInfo) Close() error {
+	pool.NeighborCacheInfo.Put(a)
+	return nil
+}
+func (a *NeighborCacheInfo) Set(v []byte) {
+	panic("should never be called")
+}
+func (a *NeighborCacheInfo) Size() int {
+	panic("should never be called")
+	return 0
+}
+func (a *NeighborCacheInfo) String() string {
+	return fmt.Sprintf("%+v", *a)
+}
+func (a *NeighborCacheInfo) Parse(b []byte) {
+	*a = *(*NeighborCacheInfo)(unsafe.Pointer(&b[0]))
+}
 
 type AddressFamily uint8
 

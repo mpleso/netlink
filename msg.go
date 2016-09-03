@@ -868,6 +868,8 @@ func (m *NeighborMessage) Parse(b []byte) {
 			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
 		case NDA_LLADDR:
 			m.Attrs[n.Kind] = afAddr(AF_UNSPEC, v)
+		case NDA_CACHEINFO:
+			m.Attrs[n.Kind] = NewNeighborCacheInfoBytes(v)
 		case NDA_PROBES:
 			m.Attrs[n.Kind] = Uint32AttrBytes(v)
 		default:
