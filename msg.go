@@ -136,6 +136,7 @@ func (m *NoopMessage) String() string {
 	return m.Header.String()
 }
 func (m *NoopMessage) TxAdd(s *Socket) {
+	defer m.Close()
 	m.Header.Type = NLMSG_NOOP
 	s.TxAddReq(&m.Header, 0)
 }
@@ -164,6 +165,7 @@ func (m *DoneMessage) Parse(b []byte) {
 	*m = *(*DoneMessage)(unsafe.Pointer(&b[0]))
 }
 func (m *DoneMessage) TxAdd(s *Socket) {
+	defer m.Close()
 	m.Header.Type = NLMSG_NOOP
 	s.TxAddReq(&m.Header, 0)
 }
@@ -198,6 +200,7 @@ func (m *ErrorMessage) String() string {
 	return s
 }
 func (m *ErrorMessage) TxAdd(s *Socket) {
+	defer m.Close()
 	m.Header.Type = NLMSG_ERROR
 	b := s.TxAddReq(&m.Header, 4+SizeofHeader)
 	e := (*ErrorMessage)(unsafe.Pointer(&b[0]))
@@ -553,6 +556,7 @@ func (m *IfInfoMessage) String() string {
 }
 
 func (m *IfInfoMessage) TxAdd(s *Socket) {
+	defer m.Close()
 	as := AttrVec(m.Attrs[:])
 	l := as.Size()
 	b := s.TxAddReq(&m.Header, SizeofIfInfomsg+l)
@@ -751,6 +755,7 @@ func (m *IfAddrMessage) String() string {
 }
 
 func (m *IfAddrMessage) TxAdd(s *Socket) {
+	defer m.Close()
 	as := AttrVec(m.Attrs[:])
 	l := as.Size()
 	b := s.TxAddReq(&m.Header, SizeofIfAddrmsg+l)
@@ -837,6 +842,7 @@ func (m *RouteMessage) String() string {
 }
 
 func (m *RouteMessage) TxAdd(s *Socket) {
+	defer m.Close()
 	as := AttrVec(m.Attrs[:])
 	l := as.Size()
 	b := s.TxAddReq(&m.Header, SizeofRtmsg+l)
@@ -912,6 +918,7 @@ func (m *NeighborMessage) String() string {
 }
 
 func (m *NeighborMessage) TxAdd(s *Socket) {
+	defer m.Close()
 	as := AttrVec(m.Attrs[:])
 	l := as.Size()
 	b := s.TxAddReq(&m.Header, SizeofNdmsg+l)
