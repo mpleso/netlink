@@ -486,16 +486,16 @@ const (
 )
 
 var neighborAttrKindNames = []string{
-	NDA_UNSPEC:    "NDA_UNSPEC",
-	NDA_DST:       "NDA_DST",
-	NDA_LLADDR:    "NDA_LLADDR",
-	NDA_CACHEINFO: "NDA_CACHEINFO",
-	NDA_PROBES:    "NDA_PROBES",
-	NDA_VLAN:      "NDA_VLAN",
-	NDA_PORT:      "NDA_PORT",
-	NDA_VNI:       "NDA_VNI",
-	NDA_IFINDEX:   "NDA_IFINDEX",
-	NDA_MASTER:    "NDA_MASTER",
+	NDA_UNSPEC:    "UNSPEC",
+	NDA_DST:       "DST",
+	NDA_LLADDR:    "LLADDR",
+	NDA_CACHEINFO: "CACHEINFO",
+	NDA_PROBES:    "PROBES",
+	NDA_VLAN:      "VLAN",
+	NDA_PORT:      "PORT",
+	NDA_VNI:       "VNI",
+	NDA_IFINDEX:   "IFINDEX",
+	NDA_MASTER:    "MASTER",
 }
 
 func (x NeighborAttrKind) String() string {
