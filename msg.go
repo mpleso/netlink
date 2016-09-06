@@ -274,6 +274,26 @@ func (a Uint8Attr) Uint() uint8 {
 	return uint8(a)
 }
 
+type Uint16Attr uint8
+
+func Uint16AttrBytes(b []byte) Uint16Attr {
+	return Uint16Attr(*(*uint16)(unsafe.Pointer(&b[0])))
+}
+
+func (a Uint16Attr) attr() {}
+func (a Uint16Attr) Set(v []byte) {
+	*(*Uint16Attr)(unsafe.Pointer(&v[0])) = a
+}
+func (a Uint16Attr) Size() int {
+	return 2
+}
+func (a Uint16Attr) String() string {
+	return strconv.FormatUint(uint64(a), 10)
+}
+func (a Uint16Attr) Uint() uint16 {
+	return uint16(a)
+}
+
 type Uint32Attr uint32
 
 func Uint32AttrBytes(b []byte) Uint32Attr {
@@ -761,17 +781,23 @@ func (m *IfAddrMessage) Parse(b []byte) {
 	for i := 0; i < len(b); {
 		n, v, next_i := nextAttr(b, i)
 		i = next_i
-		switch IfAddrAttrKind(n.Kind) {
+		k := IfAddrAttrKind(n.Kind)
+		switch k {
 		case IFA_LABEL:
 			m.Attrs[n.Kind] = StringAttrBytes(v[:len(v)-1])
 		case IFA_FLAGS:
 			m.Attrs[n.Kind] = IfAddrFlagAttrBytes(v)
 		case IFA_CACHEINFO:
 			m.Attrs[n.Kind] = NewIfAddrCacheInfoBytes(v)
-		case IFA_ADDRESS, IFA_BROADCAST, IFA_LOCAL:
+		case IFA_ADDRESS, IFA_LOCAL, IFA_BROADCAST, IFA_ANYCAST,
+			IFA_MULTICAST:
 			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
 		default:
-			m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
+			if k < IFA_MAX {
+				m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
+			} else {
+				panic(fmt.Errorf("%#v: unknown attr", k))
+			}
 		}
 	}
 	return
@@ -853,15 +879,22 @@ func (m *RouteMessage) Parse(b []byte) {
 	for i := 0; i < len(b); {
 		n, v, next_i := nextAttr(b, i)
 		i = next_i
-		switch RouteAttrKind(n.Kind) {
+		k := RouteAttrKind(n.Kind)
+		switch k {
 		case RTA_DST, RTA_SRC, RTA_PREFSRC, RTA_GATEWAY:
 			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
-		case RTA_TABLE, RTA_OIF, RTA_PRIORITY:
+		case RTA_TABLE, RTA_IIF, RTA_OIF, RTA_PRIORITY, RTA_FLOW:
 			m.Attrs[n.Kind] = Uint32AttrBytes(v)
+		case RTA_ENCAP_TYPE:
+			m.Attrs[n.Kind] = Uint16AttrBytes(v)
 		case RTA_CACHEINFO:
 			m.Attrs[n.Kind] = NewRtaCacheInfoBytes(v)
 		default:
-			m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
+			if k < RTA_MAX {
+				m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
+			} else {
+				panic(fmt.Errorf("%#v: unknown attr", k))
+			}
 		}
 	}
 	return
@@ -933,17 +966,25 @@ func (m *NeighborMessage) Parse(b []byte) {
 	for i := 0; i < len(b); {
 		n, v, next_i := nextAttr(b, i)
 		i = next_i
-		switch NeighborAttrKind(n.Kind) {
+		k := NeighborAttrKind(n.Kind)
+		switch k {
 		case NDA_DST:
 			m.Attrs[n.Kind] = afAddr(AddressFamily(m.Family), v)
 		case NDA_LLADDR:
 			m.Attrs[n.Kind] = afAddr(AF_UNSPEC, v)
 		case NDA_CACHEINFO:
 			m.Attrs[n.Kind] = NewNdaCacheInfoBytes(v)
-		case NDA_PROBES:
+		case NDA_PROBES, NDA_VNI, NDA_IFINDEX, NDA_MASTER,
+			NDA_LINK_NETNSID:
 			m.Attrs[n.Kind] = Uint32AttrBytes(v)
+		case NDA_VLAN:
+			m.Attrs[n.Kind] = Uint16AttrBytes(v)
 		default:
-			m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
+			if k < NDA_MAX {
+				m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
+			} else {
+				panic(fmt.Errorf("%#v: unknown attr", k))
+			}
 		}
 	}
 	return
