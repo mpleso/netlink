@@ -1408,6 +1408,59 @@ func (t *Ip6IfAttrType) IthString(i int) string {
 }
 
 const (
+	INET6_IF_PREFIX_ONLINK   = Ip6IfFlagsAttr(0x01)
+	INET6_IF_PREFIX_AUTOCONF = Ip6IfFlagsAttr(0x02)
+	INET6_IF_RA_OTHERCONF    = Ip6IfFlagsAttr(0x80)
+	INET6_IF_RA_MANAGED      = Ip6IfFlagsAttr(0x40)
+	INET6_IF_RA_RCVD         = Ip6IfFlagsAttr(0x20)
+	INET6_IF_RS_SENT         = Ip6IfFlagsAttr(0x10)
+	INET6_IF_READY           = Ip6IfFlagsAttr(0x80000000)
+)
+
+type Ip6IfFlagsAttr uint32
+
+func Ip6IfFlagsAttrBytes(b []byte) Ip6IfFlagsAttr {
+	return Ip6IfFlagsAttr(*(*uint32)(unsafe.Pointer(&b[0])))
+}
+
+func (a Ip6IfFlagsAttr) attr() {}
+func (a Ip6IfFlagsAttr) Set(v []byte) {
+	*(*Ip6IfFlagsAttr)(unsafe.Pointer(&v[0])) = a
+}
+func (a Ip6IfFlagsAttr) Size() int {
+	return 4
+}
+func (a Ip6IfFlagsAttr) String() string {
+	return StringOf(a)
+}
+func (a Ip6IfFlagsAttr) Uint() uint32 {
+	return uint32(a)
+}
+func (a Ip6IfFlagsAttr) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	for _, match := range []struct {
+		bit  Ip6IfFlagsAttr
+		name string
+	}{
+		{INET6_IF_PREFIX_ONLINK, "ONLINK"},
+		{INET6_IF_PREFIX_AUTOCONF, "AUTOCONF"},
+		{INET6_IF_RA_OTHERCONF, "OTHERCONF"},
+		{INET6_IF_RA_MANAGED, "MANAGED"},
+		{INET6_IF_RA_RCVD, "RCVD"},
+		{INET6_IF_RS_SENT, "SENT"},
+		{INET6_IF_READY, "READY"},
+	} {
+		if a&match.bit == match.bit {
+			if acc.N > 0 {
+				acc.Fprint(w, " | ")
+			}
+			acc.Fprint(w, match.name)
+		}
+	}
+	return acc.N, acc.Err
+}
+
+const (
 	IPV4_DEVCONF_FORWARDING Ip4DevConfKind = iota + 1
 	IPV4_DEVCONF_MC_FORWARDING
 	IPV4_DEVCONF_PROXY_ARP

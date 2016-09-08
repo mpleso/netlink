@@ -769,6 +769,7 @@ func parse_ip6_af_spec(b []byte) *AttrArray {
 		switch t {
 		case IFLA_INET6_UNSPEC:
 		case IFLA_INET6_FLAGS:
+			as.X[t] = Ip6IfFlagsAttrBytes(v)
 		case IFLA_INET6_CONF:
 			as.X[t] = NewIp6DevConfBytes(v)
 		case IFLA_INET6_STATS:
