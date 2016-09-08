@@ -6,10 +6,19 @@ package netlink
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"unsafe"
 
 	"github.com/platinasystems/elib"
+)
+
+const (
+	nl   = "\n"
+	lvl1 = "    "
+	lvl2 = "        "
+	lvl3 = "            "
+	lvl4 = "                "
 )
 
 type Header struct {
@@ -475,8 +484,7 @@ func NewRtaCacheInfoBytes(b []byte) *RtaCacheInfo {
 
 func (a *RtaCacheInfo) attr() {}
 func (a *RtaCacheInfo) Close() error {
-	*a = RtaCacheInfo{}
-	pool.RtaCacheInfo.Put(a)
+	repool(a)
 	return nil
 }
 func (a *RtaCacheInfo) Set(v []byte) {
@@ -487,10 +495,19 @@ func (a *RtaCacheInfo) Size() int {
 	return 0
 }
 func (a *RtaCacheInfo) String() string {
-	return fmt.Sprintf("%+v", *a)
+	return StringOf(a)
 }
 func (a *RtaCacheInfo) Parse(b []byte) {
 	*a = *(*RtaCacheInfo)(unsafe.Pointer(&b[0]))
+}
+func (a *RtaCacheInfo) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, nl, lvl2, "clntref: ", a.ClntRef)
+	acc.Fprint(w, nl, lvl2, "lastuse: ", a.LastUse)
+	acc.Fprint(w, nl, lvl2, "expires: ", a.Expires)
+	acc.Fprint(w, nl, lvl2, "error: ", a.Error)
+	acc.Fprint(w, nl, lvl2, "used: ", a.Used)
+	return acc.N, acc.Err
 }
 
 type Ndmsg struct {
@@ -606,9 +623,11 @@ func NewNdaCacheInfoBytes(b []byte) *NdaCacheInfo {
 
 func (a *NdaCacheInfo) attr() {}
 func (a *NdaCacheInfo) Close() error {
-	*a = NdaCacheInfo{}
-	pool.NdaCacheInfo.Put(a)
+	repool(a)
 	return nil
+}
+func (a *NdaCacheInfo) Parse(b []byte) {
+	*a = *(*NdaCacheInfo)(unsafe.Pointer(&b[0]))
 }
 func (a *NdaCacheInfo) Set(v []byte) {
 	panic("should never be called")
@@ -618,10 +637,15 @@ func (a *NdaCacheInfo) Size() int {
 	return 0
 }
 func (a *NdaCacheInfo) String() string {
-	return fmt.Sprintf("%+v", *a)
+	return StringOf(a)
 }
-func (a *NdaCacheInfo) Parse(b []byte) {
-	*a = *(*NdaCacheInfo)(unsafe.Pointer(&b[0]))
+func (a *NdaCacheInfo) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, nl, lvl2, "confirmed: ", a.Confirmed)
+	acc.Fprint(w, nl, lvl2, "used: ", a.Used)
+	acc.Fprint(w, nl, lvl2, "updated: ", a.Updated)
+	acc.Fprint(w, nl, lvl2, "refcnt: ", a.RefCnt)
+	return acc.N, acc.Err
 }
 
 type AddressFamily uint8
@@ -729,7 +753,7 @@ func NewAddressFamilyAttrType() *AddressFamilyAttrType {
 
 func (t *AddressFamilyAttrType) attrType() {}
 func (t *AddressFamilyAttrType) Close() error {
-	pool.Empty.Put((*Empty)(t))
+	repool(t)
 	return nil
 }
 func (t *AddressFamilyAttrType) IthString(i int) string {
@@ -748,20 +772,30 @@ func NewIp4AddressBytes(b []byte) *Ip4Address {
 	return a
 }
 
-func (a *Ip4Address) attr()         {}
-func (a *Ip4Address) Bytes() []byte { return a[:] }
-func (a *Ip4Address) Size() int     { return len(a) }
-func (a *Ip4Address) Set(v []byte)  { copy(v, a[:]) }
-func (a *Ip4Address) String() string {
-	return fmt.Sprintf("%d.%d.%d.%d", a[0], a[1], a[2], a[3])
+func (a *Ip4Address) attr() {}
+func (a *Ip4Address) Bytes() []byte {
+	return a[:]
+}
+func (a *Ip4Address) Close() error {
+	repool(a)
+	return nil
 }
 func (a *Ip4Address) Parse(b []byte) {
 	copy(a[:], b[:4])
 }
-func (a *Ip4Address) Close() error {
-	*a = Ip4Address{}
-	pool.Ip4Address.Put(a)
-	return nil
+func (a *Ip4Address) Set(v []byte) {
+	copy(v, a[:])
+}
+func (a *Ip4Address) Size() int {
+	return len(a)
+}
+func (a *Ip4Address) String() string {
+	return StringOf(a)
+}
+func (a *Ip4Address) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprintf(w, "%d.%d.%d.%d", a[0], a[1], a[2], a[3])
+	return acc.N, acc.Err
 }
 
 type Ip6Address [16]byte
@@ -772,20 +806,30 @@ func NewIp6AddressBytes(b []byte) *Ip6Address {
 	return a
 }
 
-func (a *Ip6Address) attr()         {}
-func (a *Ip6Address) Bytes() []byte { return a[:] }
-func (a *Ip6Address) Size() int     { return len(a) }
-func (a *Ip6Address) Set(v []byte)  { copy(v, a[:]) }
-func (a *Ip6Address) String() string {
-	return net.IP(a[:]).String()
+func (a *Ip6Address) attr() {}
+func (a *Ip6Address) Bytes() []byte {
+	return a[:]
+}
+func (a *Ip6Address) Close() error {
+	repool(a)
+	return nil
 }
 func (a *Ip6Address) Parse(b []byte) {
 	copy(a[:], b[:16])
 }
-func (a *Ip6Address) Close() error {
-	*a = Ip6Address{}
-	pool.Ip6Address.Put(a)
-	return nil
+func (a *Ip6Address) Set(v []byte) {
+	copy(v, a[:])
+}
+func (a *Ip6Address) Size() int {
+	return len(a)
+}
+func (a *Ip6Address) String() string {
+	return StringOf(a)
+}
+func (a *Ip6Address) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, net.IP(a[:]))
+	return acc.N, acc.Err
 }
 
 type EthernetAddress [6]byte
@@ -796,21 +840,31 @@ func NewEthernetAddressBytes(b []byte) *EthernetAddress {
 	return a
 }
 
-func (a *EthernetAddress) attr()         {}
-func (a *EthernetAddress) Bytes() []byte { return a[:] }
-func (a *EthernetAddress) Size() int     { return len(a) }
-func (a *EthernetAddress) Set(v []byte)  { copy(v, a[:]) }
-func (a *EthernetAddress) String() string {
-	return fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x",
-		a[0], a[1], a[2], a[3], a[4], a[5])
+func (a *EthernetAddress) attr() {}
+func (a *EthernetAddress) Bytes() []byte {
+	return a[:]
+}
+func (a *EthernetAddress) Close() error {
+	repool(a)
+	return nil
 }
 func (a *EthernetAddress) Parse(b []byte) {
 	copy(a[:], b[:6])
 }
-func (a *EthernetAddress) Close() error {
-	*a = EthernetAddress{}
-	pool.EthernetAddress.Put(a)
-	return nil
+func (a *EthernetAddress) Set(v []byte) {
+	copy(v, a[:])
+}
+func (a *EthernetAddress) Size() int {
+	return len(a)
+}
+func (a *EthernetAddress) String() string {
+	return StringOf(a)
+}
+func (a *EthernetAddress) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprintf(w, "%02x:%02x:%02x:%02x:%02x:%02x",
+		a[0], a[1], a[2], a[3], a[4], a[5])
+	return acc.N, acc.Err
 }
 
 func afAddr(af AddressFamily, b []byte) Attr {
@@ -1066,12 +1120,9 @@ func (t MessageType) String() string {
 	if i < len(names) && len(names[i]) > 0 {
 		return names[i]
 	} else {
-		return fmt.Sprintf("%d", i)
+		panic(fmt.Errorf("unknown message type: %d", i))
 	}
 }
-
-type IfInfoAttrKind int
-type IfAddrAttrKind int
 
 const (
 	IFLA_UNSPEC IfInfoAttrKind = iota
@@ -1177,6 +1228,12 @@ var ifInfoAttrKindNames = []string{
 	IFLA_GSO_MAX_SIZE:    "GSO_MAX_SIZE",
 }
 
+type IfInfoAttrKind int
+
+func (t IfInfoAttrKind) String() string {
+	return elib.Stringer(ifInfoAttrKindNames, int(t))
+}
+
 var ifAddrAttrKindNames = []string{
 	IFA_UNSPEC:    "UNSPEC",
 	IFA_ADDRESS:   "ADDRESS",
@@ -1189,10 +1246,11 @@ var ifAddrAttrKindNames = []string{
 	IFA_FLAGS:     "FLAGS",
 }
 
-func (t IfInfoAttrKind) String() string { return elib.Stringer(ifInfoAttrKindNames, int(t)) }
-func (t IfAddrAttrKind) String() string { return elib.Stringer(ifAddrAttrKindNames, int(t)) }
+type IfAddrAttrKind int
 
-type IfOperState uint8
+func (t IfAddrAttrKind) String() string {
+	return elib.Stringer(ifAddrAttrKindNames, int(t))
+}
 
 const (
 	IF_OPER_UNKNOWN IfOperState = iota
@@ -1214,14 +1272,25 @@ var ifOperStates = []string{
 	"up",
 }
 
-func (a IfOperState) attr()        {}
-func (a IfOperState) Size() int    { return 1 }
-func (a IfOperState) Set(v []byte) { panic("should never be called") }
+type IfOperState uint8
+
+func (a IfOperState) attr() {}
+func (a IfOperState) Set(v []byte) {
+	panic("should never be called")
+}
+func (a IfOperState) Size() int {
+	return 1
+}
 func (a IfOperState) String() string {
 	if int(a) >= len(ifOperStates) {
 		a = 0
 	}
 	return ifOperStates[a]
+}
+func (a IfOperState) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, a)
+	return acc.N, acc.Err
 }
 
 type IfAddrCacheInfo struct {
@@ -1239,8 +1308,7 @@ func NewIfAddrCacheInfoBytes(b []byte) *IfAddrCacheInfo {
 
 func (a *IfAddrCacheInfo) attr() {}
 func (a *IfAddrCacheInfo) Close() error {
-	*a = IfAddrCacheInfo{}
-	pool.IfAddrCacheInfo.Put(a)
+	repool(a)
 	return nil
 }
 func (a *IfAddrCacheInfo) Set(v []byte) {
@@ -1251,16 +1319,49 @@ func (a *IfAddrCacheInfo) Size() int {
 	return 0
 }
 func (a *IfAddrCacheInfo) String() string {
-	return fmt.Sprintf("%+v", *a)
+	return StringOf(a)
 }
 func (a *IfAddrCacheInfo) Parse(b []byte) {
 	*a = *(*IfAddrCacheInfo)(unsafe.Pointer(&b[0]))
+}
+func (a *IfAddrCacheInfo) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, nl, lvl2, "prefered: ", a.Prefered)
+	acc.Fprint(w, nl, lvl2, "valid: ", a.Valid)
+	acc.Fprint(w, nl, lvl2, "created: ", a.CreatedTimestamp)
+	acc.Fprint(w, nl, lvl2, "updated: ", a.UpdatedTimestamp)
+	return acc.N, acc.Err
 }
 
 const (
 	IFLA_INET_UNSPEC Ip4IfAttrKind = iota
 	IFLA_INET_CONF
 )
+
+var ip4IfAttrTypeNames = []string{
+	IFLA_INET_UNSPEC: "UNSPEC",
+	IFLA_INET_CONF:   "CONF",
+}
+
+type Ip4IfAttrKind int
+type Ip4IfAttrType Empty
+
+func NewIp4IfAttrType() *Ip4IfAttrType {
+	return (*Ip4IfAttrType)(pool.Empty.Get().(*Empty))
+}
+
+func (t Ip4IfAttrKind) String() string {
+	return elib.Stringer(ip4IfAttrTypeNames, int(t))
+}
+
+func (t *Ip4IfAttrType) attrType() {}
+func (t *Ip4IfAttrType) Close() error {
+	repool(t)
+	return nil
+}
+func (t *Ip4IfAttrType) IthString(i int) string {
+	return elib.Stringer(ip4IfAttrTypeNames, i)
+}
 
 const (
 	IFLA_INET6_UNSPEC        Ip6IfAttrKind = iota
@@ -1274,11 +1375,6 @@ const (
 	IFLA_INET6_ADDR_GEN_MODE               /* implicit address generator mode */
 )
 
-var ip4IfAttrTypeNames = []string{
-	IFLA_INET_UNSPEC: "UNSPEC",
-	IFLA_INET_CONF:   "CONF",
-}
-
 var ip6IfAttrTypeNames = []string{
 	IFLA_INET6_UNSPEC:        "UNSPEC",
 	IFLA_INET6_FLAGS:         "FLAGS",
@@ -1291,52 +1387,25 @@ var ip6IfAttrTypeNames = []string{
 	IFLA_INET6_ADDR_GEN_MODE: "ADDR_GEN_MODE",
 }
 
-type Ip4IfAttrKind int
-
-func (t Ip4IfAttrKind) String() string {
-	return elib.Stringer(ip4IfAttrTypeNames, int(t))
-}
-
 type Ip6IfAttrKind int
+type Ip6IfAttrType Empty
+
+func NewIp6IfAttrType() *Ip6IfAttrType {
+	return (*Ip6IfAttrType)(pool.Empty.Get().(*Empty))
+}
 
 func (t Ip6IfAttrKind) String() string {
 	return elib.Stringer(ip6IfAttrTypeNames, int(t))
 }
 
-type Ip4IfAttrType struct{}
-
-func NewIp4IfAttrType() *Ip4IfAttrType {
-	return (*Ip4IfAttrType)(pool.Empty.Get().(*Empty))
-}
-
-func (t *Ip4IfAttrType) attrType() {}
-func (t *Ip4IfAttrType) Close() error {
-	pool.Empty.Put((*Empty)(t))
-	return nil
-}
-func (t *Ip4IfAttrType) IthString(i int) string {
-	return elib.Stringer(ip4IfAttrTypeNames, i)
-}
-
-type Ip6IfAttrType struct{}
-
-func NewIp6IfAttrType() *Ip4IfAttrType {
-	return (*Ip4IfAttrType)(pool.Empty.Get().(*Empty))
-}
-
 func (t *Ip6IfAttrType) attrType() {}
 func (t *Ip6IfAttrType) Close() error {
-	pool.Empty.Put((*Empty)(t))
+	repool(t)
 	return nil
 }
 func (t *Ip6IfAttrType) IthString(i int) string {
 	return elib.Stringer(ip6IfAttrTypeNames, i)
 }
-
-type Ip4DevConfKind int
-type Ip6DevConfKind int
-type Ip4DevConfType struct{}
-type Ip6DevConfType struct{}
 
 const (
 	IPV4_DEVCONF_FORWARDING Ip4DevConfKind = iota + 1
@@ -1401,6 +1470,18 @@ var ip4DevConfKindNames = []string{
 	IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL: "IGMPV2 Unsolicited Report Interval",
 	IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL: "IGMPV3 Unsolicited Report Interval",
 	IPV4_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN:        "Ignore Routes With Linkdown",
+}
+
+type Ip4DevConfKind int
+type Ip4DevConfType Empty
+
+func (t Ip4DevConfKind) String() string {
+	return elib.Stringer(ip4DevConfKindNames, int(t))
+}
+
+func (t *Ip4DevConfType) attrType() {}
+func (t *Ip4DevConfType) IthString(i int) string {
+	return elib.Stringer(ip4DevConfKindNames, i)
 }
 
 const (
@@ -1490,15 +1571,17 @@ var ip6DevConfKindNames = []string{
 	IPV6_DEVCONF_IGNORE_ROUTES_WITH_LINKDOWN:       "Ignore Routes With Linkdown",
 }
 
-func (t Ip4DevConfKind) String() string { return elib.Stringer(ip4DevConfKindNames, int(t)) }
-func (t Ip6DevConfKind) String() string { return elib.Stringer(ip6DevConfKindNames, int(t)) }
+type Ip6DevConfKind int
+type Ip6DevConfType Empty
 
-func (t *Ip4DevConfType) IthString(i int) string { return elib.Stringer(ip4DevConfKindNames, i) }
-func (t *Ip4DevConfType) attrType()              {}
-func (t *Ip6DevConfType) IthString(i int) string { return elib.Stringer(ip6DevConfKindNames, i) }
-func (t *Ip6DevConfType) attrType()              {}
+func (t Ip6DevConfKind) String() string {
+	return elib.Stringer(ip6DevConfKindNames, int(t))
+}
 
-type LinkStatType int
+func (t *Ip6DevConfType) attrType() {}
+func (t *Ip6DevConfType) IthString(i int) string {
+	return elib.Stringer(ip6DevConfKindNames, i)
+}
 
 const (
 	Rx_packets LinkStatType = iota
@@ -1526,6 +1609,8 @@ const (
 	Tx_compressed
 	N_link_stat
 )
+
+type LinkStatType int
 
 func (t LinkStatType) String() string {
 	names := []string{
@@ -1557,6 +1642,6 @@ func (t LinkStatType) String() string {
 	if i < len(names) && len(names[i]) > 0 {
 		return names[i]
 	} else {
-		return fmt.Sprintf("%d", i)
+		panic(fmt.Errorf("unknown link stat type: %d", i))
 	}
 }

@@ -76,7 +76,9 @@ func Dump(w io.Writer, args ...string) error {
 			(mayDumpAddr && isAddr) ||
 			(mayDumpRoute && isRoute) ||
 			(mayDumpNeighbor && isNeighbor) {
-			fmt.Fprintln(w, msg)
+			if _, err = msg.WriteTo(w); err != nil {
+				return err
+			}
 		}
 		msg.Close()
 	}

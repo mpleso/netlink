@@ -138,3 +138,77 @@ var pool = struct {
 		},
 	},
 }
+
+func repool(v interface{}) {
+	switch t := v.(type) {
+	case *Empty:
+		pool.Empty.Put(t)
+	case *AddressFamilyAttrType:
+		pool.Empty.Put((*Empty)(t))
+	case *Ip4IfAttrType:
+		pool.Empty.Put((*Empty)(t))
+	case *Ip6IfAttrType:
+		pool.Empty.Put((*Empty)(t))
+	case *DoneMessage:
+		*t = DoneMessage{}
+		pool.DoneMessage.Put(t)
+	case *ErrorMessage:
+		*t = ErrorMessage{}
+		pool.ErrorMessage.Put(t)
+	case *GenMessage:
+		*t = GenMessage{}
+		pool.GenMessage.Put(t)
+	case *IfAddrMessage:
+		*t = IfAddrMessage{}
+		pool.IfAddrMessage.Put(t)
+	case *IfInfoMessage:
+		*t = IfInfoMessage{}
+		pool.IfInfoMessage.Put(t)
+	case *NeighborMessage:
+		*t = NeighborMessage{}
+		pool.NeighborMessage.Put(t)
+	case *NoopMessage:
+		*t = NoopMessage{}
+		pool.NoopMessage.Put(t)
+	case *RouteMessage:
+		*t = RouteMessage{}
+		pool.RouteMessage.Put(t)
+	case *AttrArray:
+		*t = AttrArray{}
+		pool.AttrArray.Put(t)
+	case *LinkStats:
+		*t = LinkStats{}
+		pool.LinkStats.Put(t)
+	case *LinkStats64:
+		*t = LinkStats64{}
+		pool.LinkStats64.Put(t)
+	case *Ip4Address:
+		*t = Ip4Address{}
+		pool.Ip4Address.Put(t)
+	case *Ip6Address:
+		*t = Ip6Address{}
+		pool.Ip6Address.Put(t)
+	case *EthernetAddress:
+		*t = EthernetAddress{}
+		pool.EthernetAddress.Put(t)
+	case *Ip4DevConf:
+		*t = Ip4DevConf{}
+		pool.Ip4DevConf.Put(t)
+	case *Ip6DevConf:
+		*t = Ip6DevConf{}
+		pool.Ip6DevConf.Put(t)
+	case *IfAddrCacheInfo:
+		*t = IfAddrCacheInfo{}
+		pool.IfAddrCacheInfo.Put(t)
+	case *RtaCacheInfo:
+		*t = RtaCacheInfo{}
+		pool.RtaCacheInfo.Put(t)
+	case *NdaCacheInfo:
+		*t = NdaCacheInfo{}
+		pool.NdaCacheInfo.Put(t)
+	case *bytes.Buffer:
+		t.Reset()
+		pool.Bytes.Put(t)
+
+	}
+}

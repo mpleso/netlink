@@ -32,9 +32,6 @@ type Byter interface {
 type IthStringer interface {
 	IthString(int) string
 }
-type Closer interface {
-	Close() error
-}
 type netlinkMessager interface {
 	netlinkMessage()
 }
@@ -49,9 +46,6 @@ type Setter interface {
 }
 type Sizer interface {
 	Size() int
-}
-type Stringer interface {
-	String() string
 }
 type TxAdder interface {
 	TxAdd(*Socket)
@@ -75,15 +69,17 @@ type Attr interface {
 	attrer
 	Setter
 	Sizer
-	Stringer
+	fmt.Stringer
+	io.WriterTo
 }
 
 type Message interface {
 	netlinkMessager
-	Closer
+	io.Closer
 	Parser
-	Stringer
+	fmt.Stringer
 	TxAdder
+	io.WriterTo
 }
 
 type Socket struct {
@@ -104,12 +100,26 @@ func (n *Socket) reset_tx_buffer() {
 	}
 }
 
-func (h *Header) String() (s string) {
-	s = fmt.Sprintf("%s: seq %d, len %d, pid %d", MessageType(h.Type).String(), h.Sequence, h.Len, h.Pid)
+func StringOf(wt io.WriterTo) string {
+	buf := pool.Bytes.Get().(*bytes.Buffer)
+	defer repool(buf)
+	wt.WriteTo(buf)
+	return buf.String()
+}
+
+func (h *Header) String() string {
+	return StringOf(h)
+}
+func (h *Header) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, MessageType(h.Type), ":")
+	acc.Fprint(w, nl, lvl1, "seq: ", h.Sequence)
+	acc.Fprint(w, nl, lvl1, "len: ", h.Len)
+	acc.Fprint(w, nl, lvl1, "pid: ", h.Pid)
 	if h.Flags != 0 {
-		s += ", flags " + h.Flags.String()
+		acc.Fprint(w, nl, lvl1, "flags: ", h.Flags)
 	}
-	return
+	return acc.N, acc.Err
 }
 
 type NoopMessage struct {
@@ -131,20 +141,25 @@ func NewNoopMessageBytes(b []byte) *NoopMessage {
 func (m *NoopMessage) netlinkMessage() {}
 func (m *NoopMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
-	*m = NoopMessage{}
-	pool.NoopMessage.Put(m)
+	repool(m)
 	return nil
 }
 func (m *NoopMessage) Parse(b []byte) {
 	*m = *(*NoopMessage)(unsafe.Pointer(&b[0]))
 }
 func (m *NoopMessage) String() string {
-	return m.Header.String()
+	return StringOf(m)
 }
 func (m *NoopMessage) TxAdd(s *Socket) {
 	defer m.Close()
 	m.Header.Type = NLMSG_NOOP
 	s.TxAddReq(&m.Header, 0)
+}
+func (m *NoopMessage) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Accumulate(m.Header.WriteTo(w))
+	acc.Fprintln(w)
+	return acc.N, acc.Err
 }
 
 type DoneMessage struct {
@@ -166,12 +181,11 @@ func NewDoneMessageBytes(b []byte) *DoneMessage {
 func (m *DoneMessage) netlinkMessage() {}
 func (m *DoneMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
-	*m = DoneMessage{}
-	pool.DoneMessage.Put(m)
+	repool(m)
 	return nil
 }
 func (m *DoneMessage) String() string {
-	return m.Header.String()
+	return StringOf(m)
 }
 func (m *DoneMessage) Parse(b []byte) {
 	*m = *(*DoneMessage)(unsafe.Pointer(&b[0]))
@@ -180,6 +194,12 @@ func (m *DoneMessage) TxAdd(s *Socket) {
 	defer m.Close()
 	m.Header.Type = NLMSG_NOOP
 	s.TxAddReq(&m.Header, 0)
+}
+func (m *DoneMessage) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Accumulate(m.Header.WriteTo(w))
+	acc.Fprintln(w)
+	return acc.N, acc.Err
 }
 
 type ErrorMessage struct {
@@ -205,18 +225,14 @@ func NewErrorMessageBytes(b []byte) *ErrorMessage {
 func (m *ErrorMessage) netlinkMessage() {}
 func (m *ErrorMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
-	*m = ErrorMessage{}
-	pool.ErrorMessage.Put(m)
+	repool(m)
 	return nil
 }
 func (m *ErrorMessage) Parse(b []byte) {
 	*m = *(*ErrorMessage)(unsafe.Pointer(&b[0]))
 }
 func (m *ErrorMessage) String() string {
-	s := m.Header.String()
-	s += fmt.Sprintf(": %s, failed header: %s", syscall.Errno(-m.Errno),
-		m.Req.String())
-	return s
+	return StringOf(m)
 }
 func (m *ErrorMessage) TxAdd(s *Socket) {
 	defer m.Close()
@@ -226,11 +242,20 @@ func (m *ErrorMessage) TxAdd(s *Socket) {
 	e.Errno = m.Errno
 	e.Req = m.Req
 }
+func (m *ErrorMessage) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Accumulate(m.Header.WriteTo(w))
+	acc.Fprint(w, nl, lvl1, "error: ", syscall.Errno(-m.Errno))
+	acc.Fprint(w, "\nreq...", nl)
+	acc.Fprint(w, m.Req)
+	acc.Fprintln(w)
+	return acc.N, acc.Err
+}
 
 func closeAttrs(attrs []Attr) {
 	for i, a := range attrs {
 		if a != nil {
-			if method, found := a.(Closer); found {
+			if method, found := a.(io.Closer); found {
 				method.Close()
 			}
 			attrs[i] = nil
@@ -254,6 +279,11 @@ func (a StringAttr) Set(v []byte) {
 func (a StringAttr) String() string {
 	return string(a)
 }
+func (a StringAttr) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Accumulate(w.Write([]byte(a.String())))
+	return acc.N, acc.Err
+}
 
 type Uint8Attr uint8
 
@@ -272,6 +302,11 @@ func (a Uint8Attr) String() string {
 }
 func (a Uint8Attr) Uint() uint8 {
 	return uint8(a)
+}
+func (a Uint8Attr) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, a)
+	return acc.N, acc.Err
 }
 
 type Uint16Attr uint8
@@ -293,6 +328,11 @@ func (a Uint16Attr) String() string {
 func (a Uint16Attr) Uint() uint16 {
 	return uint16(a)
 }
+func (a Uint16Attr) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, a)
+	return acc.N, acc.Err
+}
 
 type Uint32Attr uint32
 
@@ -312,6 +352,11 @@ func (a Uint32Attr) String() string {
 }
 func (a Uint32Attr) Uint() uint32 {
 	return uint32(a)
+}
+func (a Uint32Attr) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, a)
+	return acc.N, acc.Err
 }
 
 type Uint64Attr uint64
@@ -333,6 +378,11 @@ func (a Uint64Attr) String() string {
 func (a Uint64Attr) Uint() uint64 {
 	return uint64(a)
 }
+func (a Uint64Attr) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, a)
+	return acc.N, acc.Err
+}
 
 type HexStringAttr bytes.Buffer
 
@@ -347,9 +397,7 @@ func (a *HexStringAttr) Buffer() *bytes.Buffer {
 	return (*bytes.Buffer)(a)
 }
 func (a *HexStringAttr) Close() error {
-	buf := a.Buffer()
-	buf.Reset()
-	pool.Bytes.Put(buf)
+	repool(a.Buffer())
 	return nil
 }
 func (a *HexStringAttr) Parse(b []byte) {
@@ -363,6 +411,11 @@ func (a *HexStringAttr) Size() int {
 }
 func (a *HexStringAttr) String() string {
 	return hex.EncodeToString(a.Buffer().Bytes())
+}
+func (a *HexStringAttr) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, a)
+	return acc.N, acc.Err
 }
 
 //go:generate go build github.com/platinasystems/elib/gentemplate
@@ -406,17 +459,16 @@ func (a *AttrArray) attr() {}
 func (a *AttrArray) Close() error {
 	for i, x := range a.X {
 		if x != nil {
-			if method, found := x.(Closer); found {
+			if method, found := x.(io.Closer); found {
 				method.Close()
 			}
 			a.X[i] = nil
 		}
 	}
-	if method, found := a.Type.(Closer); found {
+	if method, found := a.Type.(io.Closer); found {
 		method.Close()
 	}
-	*a = AttrArray{}
-	pool.AttrArray.Put(a)
+	repool(a)
 	return nil
 }
 func (a *AttrArray) Set(v []byte) {
@@ -426,17 +478,16 @@ func (a *AttrArray) Size() int {
 	return a.X.Size()
 }
 func (a *AttrArray) String() string {
-	s := ""
-	for i := range a.X {
-		if a.X[i] != nil {
-			if len(s) > 0 {
-				s += ", "
-			}
-			s += fmt.Sprintf("%s: %s",
-				a.Type.IthString(i), a.X[i].String())
+	return StringOf(a)
+}
+func (a *AttrArray) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	for i, v := range a.X {
+		if v != nil {
+			acc.Fprint(w, nl, lvl2, a.Type.IthString(i), ": ", v)
 		}
 	}
-	return s
+	return acc.N, acc.Err
 }
 
 type LinkStats [N_link_stat]uint32
@@ -449,8 +500,7 @@ func NewLinkStatsBytes(b []byte) *LinkStats {
 
 func (a *LinkStats) attr() {}
 func (a *LinkStats) Close() error {
-	*a = LinkStats{}
-	pool.LinkStats.Put(a)
+	repool(a)
 	return nil
 }
 func (a *LinkStats) Parse(b []byte) {
@@ -463,17 +513,17 @@ func (a *LinkStats) Size() int {
 	return int(N_link_stat) * 4
 }
 func (a *LinkStats) String() string {
-	s := ""
-	for i := range a {
+	return StringOf(a)
+}
+func (a *LinkStats) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	for i, v := range a {
 		t := LinkStatType(i)
-		if a[t] != 0 || t == Rx_packets || t == Tx_packets {
-			if len(s) > 0 {
-				s += ", "
-			}
-			s += fmt.Sprintf("%s: %d", t, a[t])
+		if v != 0 || t == Rx_packets || t == Tx_packets {
+			acc.Fprint(w, nl, lvl2, t, ": ", v)
 		}
 	}
-	return s
+	return acc.N, acc.Err
 }
 
 type LinkStats64 [N_link_stat]uint64
@@ -486,8 +536,7 @@ func NewLinkStats64Bytes(b []byte) *LinkStats64 {
 
 func (a *LinkStats64) attr() {}
 func (a *LinkStats64) Close() error {
-	*a = LinkStats64{}
-	pool.LinkStats64.Put(a)
+	repool(a)
 	return nil
 }
 func (a *LinkStats64) Parse(b []byte) {
@@ -500,17 +549,17 @@ func (a *LinkStats64) Size() int {
 	return int(N_link_stat) * 8
 }
 func (a *LinkStats64) String() string {
-	s := ""
-	for i := range a {
+	return StringOf(a)
+}
+func (a *LinkStats64) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	for i, v := range a {
 		t := LinkStatType(i)
-		if a[t] != 0 || t == Rx_packets || t == Tx_packets {
-			if len(s) > 0 {
-				s += ", "
-			}
-			s += fmt.Sprintf("%s: %d", t, a[t])
+		if v != 0 || t == Rx_packets || t == Tx_packets {
+			acc.Fprint(w, nl, lvl2, t, ": ", v)
 		}
 	}
-	return s
+	return acc.N, acc.Err
 }
 
 type IfInfoMessage struct {
@@ -531,15 +580,12 @@ func NewIfInfoMessageBytes(b []byte) *IfInfoMessage {
 	return m
 }
 
-const attrFormat = "\n  %-16s %s"
-
 func (m *IfInfoMessage) netlinkMessage() {}
 
 func (m *IfInfoMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
 	closeAttrs(m.Attrs[:])
-	*m = IfInfoMessage{}
-	pool.IfInfoMessage.Put(m)
+	repool(m)
 	return nil
 }
 
@@ -575,6 +621,7 @@ func (m *IfInfoMessage) Parse(b []byte) {
 			m.Attrs[n.Kind] = parse_af_spec(v)
 		case IFLA_ADDRESS, IFLA_BROADCAST:
 			m.Attrs[n.Kind] = afAddr(AF_UNSPEC, v)
+		case IFLA_MAP:
 		default:
 			if t < IFLA_MAX {
 				m.Attrs[n.Kind] = NewHexStringAttrBytes(v)
@@ -586,21 +633,7 @@ func (m *IfInfoMessage) Parse(b []byte) {
 }
 
 func (m *IfInfoMessage) String() string {
-	s := m.Header.String()
-
-	s += fmt.Sprintf("\nIndex: %d, Family: %s, Type: %s, Flags: %s", m.Index,
-		AddressFamily(m.Family),
-		IfInfoAttrKind(m.Header.Type),
-		IfInfoFlags(m.Flags))
-	if m.Change != 0 {
-		s += fmt.Sprintf(", Changed flags: %s", IfInfoFlags(m.Change))
-	}
-	for i := range m.Attrs {
-		if m.Attrs[i] != nil {
-			s += fmt.Sprintf(attrFormat, IfInfoAttrKind(i), m.Attrs[i])
-		}
-	}
-	return s
+	return StringOf(m)
 }
 
 func (m *IfInfoMessage) TxAdd(s *Socket) {
@@ -613,6 +646,27 @@ func (m *IfInfoMessage) TxAdd(s *Socket) {
 	as.Set(b[SizeofHeader+SizeofIfInfomsg:])
 }
 
+func (m *IfInfoMessage) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Accumulate(m.Header.WriteTo(w))
+	acc.Fprint(w, nl, lvl1, "index: ", m.Index)
+	acc.Fprint(w, nl, lvl1, "family: ", AddressFamily(m.Family))
+	acc.Fprint(w, nl, lvl1, "type: ", IfInfoAttrKind(m.Header.Type))
+	acc.Fprint(w, nl, lvl1, "ifinfo flags: ", IfInfoFlags(m.Flags))
+	if m.Change != 0 {
+		acc.Fprint(w, nl, lvl1, "changed flags: ",
+			IfInfoFlags(m.Change))
+	}
+	for i, v := range m.Attrs {
+		if v != nil {
+			acc.Fprint(w, nl, lvl1, IfInfoAttrKind(i), ": ")
+			acc.Accumulate(v.WriteTo(w))
+		}
+	}
+	acc.Fprintln(w)
+	return acc.N, acc.Err
+}
+
 type Ip4DevConf [IPV4_DEVCONF_MAX]uint32
 
 func NewIp4DevConfBytes(b []byte) *Ip4DevConf {
@@ -623,8 +677,7 @@ func NewIp4DevConfBytes(b []byte) *Ip4DevConf {
 
 func (a *Ip4DevConf) attr() {}
 func (a *Ip4DevConf) Close() error {
-	*a = Ip4DevConf{}
-	pool.Ip4DevConf.Put(a)
+	repool(a)
 	return nil
 }
 func (a *Ip4DevConf) Parse(b []byte) {
@@ -638,17 +691,16 @@ func (a *Ip4DevConf) Size() int {
 	return 0
 }
 func (a *Ip4DevConf) String() string {
-	s := ""
-	for i := range a {
-		t := Ip4DevConfKind(i)
-		if a[t] != 0 {
-			if len(s) > 0 {
-				s += ", "
-			}
-			s += fmt.Sprintf("%s: %d", t, a[t])
+	return StringOf(a)
+}
+func (a *Ip4DevConf) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	for i, v := range a {
+		if v != 0 {
+			acc.Fprint(w, nl, lvl3, Ip4DevConfKind(i), ": ", v)
 		}
 	}
-	return s
+	return acc.N, acc.Err
 }
 
 func parse_ip4_af_spec(b []byte) *AttrArray {
@@ -660,6 +712,7 @@ func parse_ip4_af_spec(b []byte) *AttrArray {
 		t := Ip4IfAttrKind(n.Kind)
 		as.X.Validate(uint(t))
 		switch t {
+		case IFLA_INET_UNSPEC:
 		case IFLA_INET_CONF:
 			as.X[t] = NewIp4DevConfBytes(v)
 		default:
@@ -679,8 +732,7 @@ func NewIp6DevConfBytes(b []byte) *Ip6DevConf {
 
 func (a *Ip6DevConf) attr() {}
 func (a *Ip6DevConf) Close() error {
-	*a = Ip6DevConf{}
-	pool.Ip6DevConf.Put(a)
+	repool(a)
 	return nil
 }
 func (a *Ip6DevConf) Parse(b []byte) {
@@ -694,17 +746,16 @@ func (a *Ip6DevConf) Size() int {
 	return 0
 }
 func (a *Ip6DevConf) String() string {
-	s := ""
-	for i := range a {
-		t := Ip6DevConfKind(i)
-		if a[t] != 0 {
-			if len(s) > 0 {
-				s += ", "
-			}
-			s += fmt.Sprintf("%s: %d", t, a[t])
+	return StringOf(a)
+}
+func (a *Ip6DevConf) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	for i, v := range a {
+		if v != 0 {
+			acc.Fprint(w, nl, lvl3, Ip6DevConfKind(i), ": ", v)
 		}
 	}
-	return s
+	return acc.N, acc.Err
 }
 
 func parse_ip6_af_spec(b []byte) *AttrArray {
@@ -716,8 +767,16 @@ func parse_ip6_af_spec(b []byte) *AttrArray {
 		t := Ip6IfAttrKind(n.Kind)
 		as.X.Validate(uint(t))
 		switch t {
+		case IFLA_INET6_UNSPEC:
+		case IFLA_INET6_FLAGS:
 		case IFLA_INET6_CONF:
 			as.X[t] = NewIp6DevConfBytes(v)
+		case IFLA_INET6_STATS:
+		case IFLA_INET6_MCAST:
+		case IFLA_INET6_CACHEINFO:
+		case IFLA_INET6_ICMP6STATS:
+		case IFLA_INET6_TOKEN:
+		case IFLA_INET6_ADDR_GEN_MODE:
 		default:
 			as.X[t] = NewHexStringAttrBytes(v)
 		}
@@ -768,8 +827,7 @@ func (m *IfAddrMessage) netlinkMessage() {}
 func (m *IfAddrMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
 	closeAttrs(m.Attrs[:])
-	*m = IfAddrMessage{}
-	pool.IfAddrMessage.Put(m)
+	repool(m)
 	return nil
 }
 
@@ -804,16 +862,7 @@ func (m *IfAddrMessage) Parse(b []byte) {
 }
 
 func (m *IfAddrMessage) String() string {
-	s := m.Header.String()
-	s += fmt.Sprintf("\nIndex: %d, Family: %s, Prefix Len %d, Flags: %s, Scope: %s", m.Index,
-		AddressFamily(m.Family),
-		m.Prefixlen, IfAddrFlags(m.Header.Flags), RtScope(m.Scope))
-	for i := range m.Attrs {
-		if m.Attrs[i] != nil {
-			s += fmt.Sprintf(attrFormat, IfAddrAttrKind(i), m.Attrs[i])
-		}
-	}
-	return s
+	return StringOf(m)
 }
 
 func (m *IfAddrMessage) TxAdd(s *Socket) {
@@ -824,6 +873,25 @@ func (m *IfAddrMessage) TxAdd(s *Socket) {
 	i := (*IfAddrMessage)(unsafe.Pointer(&b[0]))
 	i.IfAddrmsg = m.IfAddrmsg
 	as.Set(b[SizeofHeader+SizeofIfAddrmsg:])
+}
+
+func (m *IfAddrMessage) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Accumulate(m.Header.WriteTo(w))
+	acc.Fprint(w, nl, lvl1, "index: ", m.Index)
+	acc.Fprint(w, nl, lvl1, "family: ", AddressFamily(m.Family))
+	acc.Fprint(w, nl, lvl1, "prefix: ", m.Prefixlen)
+	acc.Fprint(w, nl, lvl1, "ifaddr flags: ",
+		IfAddrFlags(m.Header.Flags))
+	acc.Fprint(w, nl, lvl1, "scope: ", RtScope(m.Scope))
+	for i, v := range m.Attrs {
+		if v != nil {
+			acc.Fprint(w, nl, lvl1, IfAddrAttrKind(i), ": ")
+			acc.Accumulate(v.WriteTo(w))
+		}
+	}
+	acc.Fprintln(w)
+	return acc.N, acc.Err
 }
 
 type IfAddrFlagAttr uint32
@@ -841,6 +909,11 @@ func (a IfAddrFlagAttr) Set(v []byte) {
 }
 func (a IfAddrFlagAttr) String() string {
 	return IfAddrFlags(a).String()
+}
+func (a IfAddrFlagAttr) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Fprint(w, IfAddrFlags(a))
+	return acc.N, acc.Err
 }
 
 type RouteMessage struct {
@@ -866,8 +939,7 @@ func (m *RouteMessage) netlinkMessage() {}
 func (m *RouteMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
 	closeAttrs(m.Attrs[:])
-	*m = RouteMessage{}
-	pool.RouteMessage.Put(m)
+	repool(m)
 	return nil
 }
 
@@ -901,19 +973,7 @@ func (m *RouteMessage) Parse(b []byte) {
 }
 
 func (m *RouteMessage) String() string {
-	s := m.Header.String()
-	s += fmt.Sprintf("\nFamily: %s, Src/Dst Len %d/%d, Tos %d, Table %d, Protocol %s, Scope: %s, Type %s",
-		AddressFamily(m.Family),
-		m.SrcLen, m.DstLen, m.Tos, m.Table, m.Protocol, m.Scope, m.Type)
-	if m.Flags != 0 {
-		s += ", Flags " + m.Flags.String()
-	}
-	for i := range m.Attrs {
-		if m.Attrs[i] != nil {
-			s += fmt.Sprintf(attrFormat, RouteAttrKind(i), m.Attrs[i])
-		}
-	}
-	return s
+	return StringOf(m)
 }
 
 func (m *RouteMessage) TxAdd(s *Socket) {
@@ -924,6 +984,30 @@ func (m *RouteMessage) TxAdd(s *Socket) {
 	i := (*RouteMessage)(unsafe.Pointer(&b[0]))
 	i.Rtmsg = m.Rtmsg
 	as.Set(b[SizeofHeader+SizeofRtmsg:])
+}
+
+func (m *RouteMessage) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Accumulate(m.Header.WriteTo(w))
+	acc.Fprint(w, nl, lvl1, "family: ", AddressFamily(m.Family))
+	acc.Fprint(w, nl, lvl1, "srclen: ", m.SrcLen)
+	acc.Fprint(w, nl, lvl1, "dstlen: ", m.DstLen)
+	acc.Fprint(w, nl, lvl1, "tos: ", m.Tos)
+	acc.Fprint(w, nl, lvl1, "table: ", m.Table)
+	acc.Fprint(w, nl, lvl1, "protocol: ", m.Protocol)
+	acc.Fprint(w, nl, lvl1, "scope: ", m.Scope)
+	acc.Fprint(w, nl, lvl1, "type: ", m.Type)
+	if m.Flags != 0 {
+		acc.Fprint(w, nl, lvl1, "route flags: ", m.Flags)
+	}
+	for i, v := range m.Attrs {
+		if v != nil {
+			acc.Fprint(w, nl, lvl1, RouteAttrKind(i), ": ")
+			acc.Accumulate(v.WriteTo(w))
+		}
+	}
+	acc.Fprintln(w)
+	return acc.N, acc.Err
 }
 
 type NeighborMessage struct {
@@ -953,8 +1037,7 @@ func (m *NeighborMessage) AttrBytes(kind NeighborAttrKind) []byte {
 func (m *NeighborMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
 	closeAttrs(m.Attrs[:])
-	*m = NeighborMessage{}
-	pool.NeighborMessage.Put(m)
+	repool(m)
 	return nil
 }
 
@@ -991,19 +1074,7 @@ func (m *NeighborMessage) Parse(b []byte) {
 }
 
 func (m *NeighborMessage) String() string {
-	s := m.Header.String()
-	s += fmt.Sprintf(" Index: %d, Family: %s, Type %s, State %s",
-		m.Index, AddressFamily(m.Family),
-		RouteType(m.Type), NeighborState(m.State))
-	if m.Flags != 0 {
-		s += fmt.Sprintf(", Flags %s", NeighborFlags(m.Flags))
-	}
-	for i := range m.Attrs {
-		if m.Attrs[i] != nil {
-			s += fmt.Sprintf(attrFormat, NeighborAttrKind(i), m.Attrs[i])
-		}
-	}
-	return s
+	return StringOf(m)
 }
 
 func (m *NeighborMessage) TxAdd(s *Socket) {
@@ -1014,6 +1085,27 @@ func (m *NeighborMessage) TxAdd(s *Socket) {
 	i := (*NeighborMessage)(unsafe.Pointer(&b[0]))
 	i.Ndmsg = m.Ndmsg
 	as.Set(b[SizeofHeader+SizeofNdmsg:])
+}
+
+func (m *NeighborMessage) WriteTo(w io.Writer) (int64, error) {
+	var acc Accumulator
+	acc.Accumulate(m.Header.WriteTo(w))
+	acc.Fprint(w, nl, lvl1, "index: ", m.Index)
+	acc.Fprint(w, nl, lvl1, "family: ", AddressFamily(m.Family))
+	acc.Fprint(w, nl, lvl1, "type: ", RouteType(m.Type))
+	acc.Fprint(w, nl, lvl1, "state: ", NeighborState(m.State))
+	if m.Flags != 0 {
+		acc.Fprint(w, nl, lvl1, "neighbor flags: ",
+			NeighborFlags(m.Flags))
+	}
+	for i, v := range m.Attrs {
+		if v != nil {
+			acc.Fprint(w, nl, lvl1, NeighborAttrKind(i), ": ")
+			acc.Accumulate(v.WriteTo(w))
+		}
+	}
+	acc.Fprintln(w)
+	return acc.N, acc.Err
 }
 
 // txAdd adds a both a nlmsghdr and a request header (e.g. ifinfomsg, ifaddrmsg, rtmsg, ...)
@@ -1108,8 +1200,7 @@ func NewGenMessageBytes(b []byte) *GenMessage {
 func (m *GenMessage) netlinkMessage() {}
 func (m *GenMessage) Close() error {
 	runtime.SetFinalizer(m, nil)
-	*m = GenMessage{}
-	pool.GenMessage.Put(m)
+	repool(m)
 	return nil
 }
 func (m *GenMessage) Parse(b []byte) {
