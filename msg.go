@@ -1035,6 +1035,8 @@ func (m *RouteMessage) Parse(b []byte) {
 			m.Attrs[n.Kind] = Uint32AttrBytes(v)
 		case RTA_ENCAP_TYPE:
 			m.Attrs[n.Kind] = Uint16AttrBytes(v)
+		case RTA_PREF:
+			m.Attrs[n.Kind] = Uint8Attr(v[0])
 		case RTA_CACHEINFO:
 			m.Attrs[n.Kind] = NewRtaCacheInfoBytes(v)
 		default:
