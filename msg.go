@@ -14,10 +14,10 @@ import (
 	"syscall"
 
 	"encoding/hex"
-	"strconv"
 	"unsafe"
 
 	"github.com/platinasystems/elib"
+	"github.com/platinasystems/indent"
 )
 
 type attrer interface {
@@ -31,6 +31,9 @@ type Byter interface {
 }
 type IthStringer interface {
 	IthString(int) string
+}
+type multiliner interface {
+	multiline()
 }
 type netlinkMessager interface {
 	netlinkMessage()
@@ -112,12 +115,11 @@ func (h *Header) String() string {
 }
 func (h *Header) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
-	acc.Fprint(w, MessageType(h.Type), ":")
-	acc.Fprint(w, nl, lvl1, "seq: ", h.Sequence)
-	acc.Fprint(w, nl, lvl1, "len: ", h.Len)
-	acc.Fprint(w, nl, lvl1, "pid: ", h.Pid)
+	acc.Fprintln(w, "seq:", h.Sequence)
+	acc.Fprintln(w, "len:", h.Len)
+	acc.Fprintln(w, "pid:", h.Pid)
 	if h.Flags != 0 {
-		acc.Fprint(w, nl, lvl1, "flags: ", h.Flags)
+		acc.Fprintln(w, "flags:", h.Flags)
 	}
 	return acc.N, acc.Err
 }
@@ -157,8 +159,10 @@ func (m *NoopMessage) TxAdd(s *Socket) {
 }
 func (m *NoopMessage) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
+	acc.Fprint(w, MessageType(m.Header.Type), ":\n")
+	indent.Increase(w)
+	defer indent.Decrease(w)
 	acc.Accumulate(m.Header.WriteTo(w))
-	acc.Fprintln(w)
 	return acc.N, acc.Err
 }
 
@@ -197,8 +201,10 @@ func (m *DoneMessage) TxAdd(s *Socket) {
 }
 func (m *DoneMessage) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
+	acc.Fprint(w, MessageType(m.Header.Type), ":\n")
+	indent.Increase(w)
+	defer indent.Decrease(w)
 	acc.Accumulate(m.Header.WriteTo(w))
-	acc.Fprintln(w)
 	return acc.N, acc.Err
 }
 
@@ -244,11 +250,13 @@ func (m *ErrorMessage) TxAdd(s *Socket) {
 }
 func (m *ErrorMessage) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
+	acc.Fprint(w, MessageType(m.Header.Type), ":\n")
+	indent.Increase(w)
+	defer indent.Decrease(w)
 	acc.Accumulate(m.Header.WriteTo(w))
-	acc.Fprint(w, nl, lvl1, "error: ", syscall.Errno(-m.Errno))
-	acc.Fprint(w, "\nreq...", nl)
-	acc.Fprint(w, m.Req)
-	acc.Fprintln(w)
+	acc.Fprintln(w, "error:", syscall.Errno(-m.Errno))
+	acc.Fprintln(w, "req...")
+	acc.Fprintln(w, m.Req)
 	return acc.N, acc.Err
 }
 
@@ -261,6 +269,28 @@ func closeAttrs(attrs []Attr) {
 			attrs[i] = nil
 		}
 	}
+}
+
+func fprintAttrs(w io.Writer, names []string, attrs []Attr) (int64,
+	error) {
+	var acc Accumulator
+	for i, v := range attrs {
+		if v == nil {
+			continue
+		}
+		acc.Fprint(w, elib.Stringer(names, i), ":")
+		if _, found := v.(multiliner); found {
+			acc.Fprintln(w)
+			indent.Increase(w)
+			acc.Accumulate(v.WriteTo(w))
+			indent.Decrease(w)
+		} else {
+			acc.Fprint(w, " ")
+			acc.Accumulate(v.WriteTo(w))
+			acc.Fprintln(w)
+		}
+	}
+	return acc.N, acc.Err
 }
 
 type StringAttr string
@@ -281,7 +311,7 @@ func (a StringAttr) String() string {
 }
 func (a StringAttr) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
-	acc.Accumulate(w.Write([]byte(a.String())))
+	acc.Fprint(w, a)
 	return acc.N, acc.Err
 }
 
@@ -298,14 +328,14 @@ func (a Uint8Attr) Size() int {
 	return 1
 }
 func (a Uint8Attr) String() string {
-	return strconv.FormatUint(uint64(a), 10)
+	return StringOf(a)
 }
 func (a Uint8Attr) Uint() uint8 {
 	return uint8(a)
 }
 func (a Uint8Attr) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
-	acc.Fprint(w, a)
+	acc.Fprint(w, a.Uint())
 	return acc.N, acc.Err
 }
 
@@ -323,14 +353,14 @@ func (a Uint16Attr) Size() int {
 	return 2
 }
 func (a Uint16Attr) String() string {
-	return strconv.FormatUint(uint64(a), 10)
+	return StringOf(a)
 }
 func (a Uint16Attr) Uint() uint16 {
 	return uint16(a)
 }
 func (a Uint16Attr) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
-	acc.Fprint(w, a)
+	acc.Fprint(w, a.Uint())
 	return acc.N, acc.Err
 }
 
@@ -348,14 +378,14 @@ func (a Uint32Attr) Size() int {
 	return 4
 }
 func (a Uint32Attr) String() string {
-	return strconv.FormatUint(uint64(a), 10)
+	return StringOf(a)
 }
 func (a Uint32Attr) Uint() uint32 {
 	return uint32(a)
 }
 func (a Uint32Attr) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
-	acc.Fprint(w, a)
+	acc.Fprint(w, a.Uint())
 	return acc.N, acc.Err
 }
 
@@ -373,14 +403,14 @@ func (a Uint64Attr) Size() int {
 	return 8
 }
 func (a Uint64Attr) String() string {
-	return strconv.FormatUint(uint64(a), 10)
+	return StringOf(a)
 }
 func (a Uint64Attr) Uint() uint64 {
 	return uint64(a)
 }
 func (a Uint64Attr) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
-	acc.Fprint(w, a)
+	acc.Fprint(w, a.Uint())
 	return acc.N, acc.Err
 }
 
@@ -410,11 +440,11 @@ func (a *HexStringAttr) Size() int {
 	return a.Buffer().Len()
 }
 func (a *HexStringAttr) String() string {
-	return hex.EncodeToString(a.Buffer().Bytes())
+	return StringOf(a)
 }
 func (a *HexStringAttr) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
-	acc.Fprint(w, a)
+	acc.Fprint(w, hex.EncodeToString(a.Buffer().Bytes()))
 	return acc.N, acc.Err
 }
 
@@ -456,6 +486,9 @@ type AttrArray struct {
 }
 
 func (a *AttrArray) attr() {}
+
+func (a *AttrArray) multiline() {}
+
 func (a *AttrArray) Close() error {
 	for i, x := range a.X {
 		if x != nil {
@@ -483,8 +516,19 @@ func (a *AttrArray) String() string {
 func (a *AttrArray) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
 	for i, v := range a.X {
-		if v != nil {
-			acc.Fprint(w, nl, lvl2, a.Type.IthString(i), ": ", v)
+		if v == nil {
+			continue
+		}
+		acc.Fprint(w, a.Type.IthString(i), ":")
+		if _, found := v.(multiliner); found {
+			acc.Fprintln(w)
+			indent.Increase(w)
+			acc.Accumulate(v.WriteTo(w))
+			indent.Decrease(w)
+		} else {
+			acc.Fprint(w, " ")
+			acc.Accumulate(v.WriteTo(w))
+			acc.Fprintln(w)
 		}
 	}
 	return acc.N, acc.Err
@@ -499,6 +543,9 @@ func NewLinkStatsBytes(b []byte) *LinkStats {
 }
 
 func (a *LinkStats) attr() {}
+
+func (a *LinkStats) multiline() {}
+
 func (a *LinkStats) Close() error {
 	repool(a)
 	return nil
@@ -520,7 +567,7 @@ func (a *LinkStats) WriteTo(w io.Writer) (int64, error) {
 	for i, v := range a {
 		t := LinkStatType(i)
 		if v != 0 || t == Rx_packets || t == Tx_packets {
-			acc.Fprint(w, nl, lvl2, t, ": ", v)
+			acc.Fprint(w, t, ": ", v, "\n")
 		}
 	}
 	return acc.N, acc.Err
@@ -535,6 +582,9 @@ func NewLinkStats64Bytes(b []byte) *LinkStats64 {
 }
 
 func (a *LinkStats64) attr() {}
+
+func (a *LinkStats64) multiline() {}
+
 func (a *LinkStats64) Close() error {
 	repool(a)
 	return nil
@@ -556,7 +606,7 @@ func (a *LinkStats64) WriteTo(w io.Writer) (int64, error) {
 	for i, v := range a {
 		t := LinkStatType(i)
 		if v != 0 || t == Rx_packets || t == Tx_packets {
-			acc.Fprint(w, nl, lvl2, t, ": ", v)
+			acc.Fprint(w, t, ": ", v, "\n")
 		}
 	}
 	return acc.N, acc.Err
@@ -648,22 +698,18 @@ func (m *IfInfoMessage) TxAdd(s *Socket) {
 
 func (m *IfInfoMessage) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
+	acc.Fprint(w, MessageType(m.Header.Type), ":\n")
+	indent.Increase(w)
+	defer indent.Decrease(w)
 	acc.Accumulate(m.Header.WriteTo(w))
-	acc.Fprint(w, nl, lvl1, "index: ", m.Index)
-	acc.Fprint(w, nl, lvl1, "family: ", AddressFamily(m.Family))
-	acc.Fprint(w, nl, lvl1, "type: ", IfInfoAttrKind(m.Header.Type))
-	acc.Fprint(w, nl, lvl1, "ifinfo flags: ", IfInfoFlags(m.Flags))
+	acc.Fprintln(w, "index:", m.Index)
+	acc.Fprintln(w, "family:", AddressFamily(m.Family))
+	acc.Fprintln(w, "type:", IfInfoAttrKind(m.Header.Type))
+	acc.Fprintln(w, "ifinfo flags:", IfInfoFlags(m.Flags))
 	if m.Change != 0 {
-		acc.Fprint(w, nl, lvl1, "changed flags: ",
-			IfInfoFlags(m.Change))
+		acc.Fprintln(w, "changed flags:", IfInfoFlags(m.Change))
 	}
-	for i, v := range m.Attrs {
-		if v != nil {
-			acc.Fprint(w, nl, lvl1, IfInfoAttrKind(i), ": ")
-			acc.Accumulate(v.WriteTo(w))
-		}
-	}
-	acc.Fprintln(w)
+	acc.Accumulate(fprintAttrs(w, ifInfoAttrKindNames, m.Attrs[:]))
 	return acc.N, acc.Err
 }
 
@@ -676,6 +722,9 @@ func NewIp4DevConfBytes(b []byte) *Ip4DevConf {
 }
 
 func (a *Ip4DevConf) attr() {}
+
+func (a *Ip4DevConf) multiline() {}
+
 func (a *Ip4DevConf) Close() error {
 	repool(a)
 	return nil
@@ -695,9 +744,11 @@ func (a *Ip4DevConf) String() string {
 }
 func (a *Ip4DevConf) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
+	indent.Increase(w)
+	defer indent.Decrease(w)
 	for i, v := range a {
 		if v != 0 {
-			acc.Fprint(w, nl, lvl3, Ip4DevConfKind(i), ": ", v)
+			acc.Fprint(w, Ip4DevConfKind(i), ": ", v, "\n")
 		}
 	}
 	return acc.N, acc.Err
@@ -731,6 +782,9 @@ func NewIp6DevConfBytes(b []byte) *Ip6DevConf {
 }
 
 func (a *Ip6DevConf) attr() {}
+
+func (a *Ip6DevConf) multiline() {}
+
 func (a *Ip6DevConf) Close() error {
 	repool(a)
 	return nil
@@ -750,9 +804,11 @@ func (a *Ip6DevConf) String() string {
 }
 func (a *Ip6DevConf) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
+	indent.Increase(w)
+	defer indent.Decrease(w)
 	for i, v := range a {
 		if v != 0 {
-			acc.Fprint(w, nl, lvl3, Ip6DevConfKind(i), ": ", v)
+			acc.Fprint(w, Ip6DevConfKind(i), ": ", v, "\n")
 		}
 	}
 	return acc.N, acc.Err
@@ -769,7 +825,10 @@ func parse_ip6_af_spec(b []byte) *AttrArray {
 		switch t {
 		case IFLA_INET6_UNSPEC:
 		case IFLA_INET6_FLAGS:
-			as.X[t] = Ip6IfFlagsAttrBytes(v)
+			flags := Ip6IfFlagsAttrBytes(v)
+			if flags != 0 {
+				as.X[t] = flags
+			}
 		case IFLA_INET6_CONF:
 			as.X[t] = NewIp6DevConfBytes(v)
 		case IFLA_INET6_STATS:
@@ -878,20 +937,16 @@ func (m *IfAddrMessage) TxAdd(s *Socket) {
 
 func (m *IfAddrMessage) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
+	acc.Fprint(w, MessageType(m.Header.Type), ":\n")
+	indent.Increase(w)
+	defer indent.Decrease(w)
 	acc.Accumulate(m.Header.WriteTo(w))
-	acc.Fprint(w, nl, lvl1, "index: ", m.Index)
-	acc.Fprint(w, nl, lvl1, "family: ", AddressFamily(m.Family))
-	acc.Fprint(w, nl, lvl1, "prefix: ", m.Prefixlen)
-	acc.Fprint(w, nl, lvl1, "ifaddr flags: ",
-		IfAddrFlags(m.Header.Flags))
-	acc.Fprint(w, nl, lvl1, "scope: ", RtScope(m.Scope))
-	for i, v := range m.Attrs {
-		if v != nil {
-			acc.Fprint(w, nl, lvl1, IfAddrAttrKind(i), ": ")
-			acc.Accumulate(v.WriteTo(w))
-		}
-	}
-	acc.Fprintln(w)
+	acc.Fprintln(w, "index:", m.Index)
+	acc.Fprintln(w, "family:", AddressFamily(m.Family))
+	acc.Fprintln(w, "prefix:", m.Prefixlen)
+	acc.Fprintln(w, "ifaddr flags:", IfAddrFlags(m.Header.Flags))
+	acc.Fprintln(w, "scope:", RtScope(m.Scope))
+	acc.Accumulate(fprintAttrs(w, ifAddrAttrKindNames, m.Attrs[:]))
 	return acc.N, acc.Err
 }
 
@@ -989,25 +1044,22 @@ func (m *RouteMessage) TxAdd(s *Socket) {
 
 func (m *RouteMessage) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
+	acc.Fprint(w, MessageType(m.Header.Type), ":\n")
+	indent.Increase(w)
+	defer indent.Decrease(w)
 	acc.Accumulate(m.Header.WriteTo(w))
-	acc.Fprint(w, nl, lvl1, "family: ", AddressFamily(m.Family))
-	acc.Fprint(w, nl, lvl1, "srclen: ", m.SrcLen)
-	acc.Fprint(w, nl, lvl1, "dstlen: ", m.DstLen)
-	acc.Fprint(w, nl, lvl1, "tos: ", m.Tos)
-	acc.Fprint(w, nl, lvl1, "table: ", m.Table)
-	acc.Fprint(w, nl, lvl1, "protocol: ", m.Protocol)
-	acc.Fprint(w, nl, lvl1, "scope: ", m.Scope)
-	acc.Fprint(w, nl, lvl1, "type: ", m.Type)
+	acc.Fprintln(w, "family:", AddressFamily(m.Family))
+	acc.Fprintln(w, "srclen:", m.SrcLen)
+	acc.Fprintln(w, "dstlen:", m.DstLen)
+	acc.Fprintln(w, "tos:", m.Tos)
+	acc.Fprintln(w, "table:", m.Table)
+	acc.Fprintln(w, "protocol:", m.Protocol)
+	acc.Fprintln(w, "scope:", m.Scope)
+	acc.Fprintln(w, "type:", m.Type)
 	if m.Flags != 0 {
-		acc.Fprint(w, nl, lvl1, "route flags: ", m.Flags)
+		acc.Fprintln(w, "route flags:", m.Flags)
 	}
-	for i, v := range m.Attrs {
-		if v != nil {
-			acc.Fprint(w, nl, lvl1, RouteAttrKind(i), ": ")
-			acc.Accumulate(v.WriteTo(w))
-		}
-	}
-	acc.Fprintln(w)
+	acc.Accumulate(fprintAttrs(w, routeAttrKindNames, m.Attrs[:]))
 	return acc.N, acc.Err
 }
 
@@ -1090,22 +1142,18 @@ func (m *NeighborMessage) TxAdd(s *Socket) {
 
 func (m *NeighborMessage) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
+	acc.Fprint(w, MessageType(m.Header.Type), ":\n")
+	indent.Increase(w)
+	defer indent.Decrease(w)
 	acc.Accumulate(m.Header.WriteTo(w))
-	acc.Fprint(w, nl, lvl1, "index: ", m.Index)
-	acc.Fprint(w, nl, lvl1, "family: ", AddressFamily(m.Family))
-	acc.Fprint(w, nl, lvl1, "type: ", RouteType(m.Type))
-	acc.Fprint(w, nl, lvl1, "state: ", NeighborState(m.State))
+	acc.Fprintln(w, "index:", m.Index)
+	acc.Fprintln(w, "family:", AddressFamily(m.Family))
+	acc.Fprintln(w, "type:", RouteType(m.Type))
+	acc.Fprintln(w, "state:", NeighborState(m.State))
 	if m.Flags != 0 {
-		acc.Fprint(w, nl, lvl1, "neighbor flags: ",
-			NeighborFlags(m.Flags))
+		acc.Fprintln(w, "neighbor flags:", NeighborFlags(m.Flags))
 	}
-	for i, v := range m.Attrs {
-		if v != nil {
-			acc.Fprint(w, nl, lvl1, NeighborAttrKind(i), ": ")
-			acc.Accumulate(v.WriteTo(w))
-		}
-	}
-	acc.Fprintln(w)
+	acc.Accumulate(fprintAttrs(w, neighborAttrKindNames, m.Attrs[:]))
 	return acc.N, acc.Err
 }
 

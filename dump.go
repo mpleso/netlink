@@ -7,6 +7,8 @@ package netlink
 import (
 	"fmt"
 	"io"
+
+	"github.com/platinasystems/indent"
 )
 
 var usage = `
@@ -76,7 +78,8 @@ func Dump(w io.Writer, args ...string) error {
 			(mayDumpAddr && isAddr) ||
 			(mayDumpRoute && isRoute) ||
 			(mayDumpNeighbor && isNeighbor) {
-			if _, err = msg.WriteTo(w); err != nil {
+			_, err = msg.WriteTo(indent.New(w, "    "))
+			if err != nil {
 				return err
 			}
 		}

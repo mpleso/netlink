@@ -13,14 +13,6 @@ import (
 	"github.com/platinasystems/elib"
 )
 
-const (
-	nl   = "\n"
-	lvl1 = "    "
-	lvl2 = "        "
-	lvl3 = "            "
-	lvl4 = "                "
-)
-
 type Header struct {
 	Len      uint32
 	Type     MsgType
@@ -483,6 +475,9 @@ func NewRtaCacheInfoBytes(b []byte) *RtaCacheInfo {
 }
 
 func (a *RtaCacheInfo) attr() {}
+
+func (a *RtaCacheInfo) multiline() {}
+
 func (a *RtaCacheInfo) Close() error {
 	repool(a)
 	return nil
@@ -502,11 +497,11 @@ func (a *RtaCacheInfo) Parse(b []byte) {
 }
 func (a *RtaCacheInfo) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
-	acc.Fprint(w, nl, lvl2, "clntref: ", a.ClntRef)
-	acc.Fprint(w, nl, lvl2, "lastuse: ", a.LastUse)
-	acc.Fprint(w, nl, lvl2, "expires: ", a.Expires)
-	acc.Fprint(w, nl, lvl2, "error: ", a.Error)
-	acc.Fprint(w, nl, lvl2, "used: ", a.Used)
+	acc.Fprintln(w, "clntref:", a.ClntRef)
+	acc.Fprintln(w, "lastuse:", a.LastUse)
+	acc.Fprintln(w, "expires:", a.Expires)
+	acc.Fprintln(w, "error:", a.Error)
+	acc.Fprintln(w, "used:", a.Used)
 	return acc.N, acc.Err
 }
 
@@ -622,6 +617,9 @@ func NewNdaCacheInfoBytes(b []byte) *NdaCacheInfo {
 }
 
 func (a *NdaCacheInfo) attr() {}
+
+func (a *NdaCacheInfo) multiline() {}
+
 func (a *NdaCacheInfo) Close() error {
 	repool(a)
 	return nil
@@ -641,10 +639,10 @@ func (a *NdaCacheInfo) String() string {
 }
 func (a *NdaCacheInfo) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
-	acc.Fprint(w, nl, lvl2, "confirmed: ", a.Confirmed)
-	acc.Fprint(w, nl, lvl2, "used: ", a.Used)
-	acc.Fprint(w, nl, lvl2, "updated: ", a.Updated)
-	acc.Fprint(w, nl, lvl2, "refcnt: ", a.RefCnt)
+	acc.Fprintln(w, "confirmed:", a.Confirmed)
+	acc.Fprintln(w, "used:", a.Used)
+	acc.Fprintln(w, "updated:", a.Updated)
+	acc.Fprintln(w, "refcnt:", a.RefCnt)
 	return acc.N, acc.Err
 }
 
@@ -1307,6 +1305,9 @@ func NewIfAddrCacheInfoBytes(b []byte) *IfAddrCacheInfo {
 }
 
 func (a *IfAddrCacheInfo) attr() {}
+
+func (a *IfAddrCacheInfo) multiline() {}
+
 func (a *IfAddrCacheInfo) Close() error {
 	repool(a)
 	return nil
@@ -1326,10 +1327,10 @@ func (a *IfAddrCacheInfo) Parse(b []byte) {
 }
 func (a *IfAddrCacheInfo) WriteTo(w io.Writer) (int64, error) {
 	var acc Accumulator
-	acc.Fprint(w, nl, lvl2, "prefered: ", a.Prefered)
-	acc.Fprint(w, nl, lvl2, "valid: ", a.Valid)
-	acc.Fprint(w, nl, lvl2, "created: ", a.CreatedTimestamp)
-	acc.Fprint(w, nl, lvl2, "updated: ", a.UpdatedTimestamp)
+	acc.Fprintln(w, "prefered:", a.Prefered)
+	acc.Fprintln(w, "valid:", a.Valid)
+	acc.Fprintln(w, "created:", a.CreatedTimestamp)
+	acc.Fprintln(w, "updated:", a.UpdatedTimestamp)
 	return acc.N, acc.Err
 }
 
