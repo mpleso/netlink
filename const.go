@@ -10,6 +10,7 @@ import (
 	"net"
 	"unsafe"
 
+	"github.com/platinasystems/accumulate"
 	"github.com/platinasystems/elib"
 )
 
@@ -496,12 +497,13 @@ func (a *RtaCacheInfo) Parse(b []byte) {
 	*a = *(*RtaCacheInfo)(unsafe.Pointer(&b[0]))
 }
 func (a *RtaCacheInfo) WriteTo(w io.Writer) (int64, error) {
-	var acc Accumulator
-	acc.Fprintln(w, "clntref:", a.ClntRef)
-	acc.Fprintln(w, "lastuse:", a.LastUse)
-	acc.Fprintln(w, "expires:", a.Expires)
-	acc.Fprintln(w, "error:", a.Error)
-	acc.Fprintln(w, "used:", a.Used)
+	acc := accumulate.NewWriter(w)
+	defer acc.Fini()
+	fmt.Fprintln(acc, "clntref:", a.ClntRef)
+	fmt.Fprintln(acc, "lastuse:", a.LastUse)
+	fmt.Fprintln(acc, "expires:", a.Expires)
+	fmt.Fprintln(acc, "error:", a.Error)
+	fmt.Fprintln(acc, "used:", a.Used)
 	return acc.N, acc.Err
 }
 
@@ -638,11 +640,12 @@ func (a *NdaCacheInfo) String() string {
 	return StringOf(a)
 }
 func (a *NdaCacheInfo) WriteTo(w io.Writer) (int64, error) {
-	var acc Accumulator
-	acc.Fprintln(w, "confirmed:", a.Confirmed)
-	acc.Fprintln(w, "used:", a.Used)
-	acc.Fprintln(w, "updated:", a.Updated)
-	acc.Fprintln(w, "refcnt:", a.RefCnt)
+	acc := accumulate.NewWriter(w)
+	defer acc.Fini()
+	fmt.Fprintln(acc, "confirmed:", a.Confirmed)
+	fmt.Fprintln(acc, "used:", a.Used)
+	fmt.Fprintln(acc, "updated:", a.Updated)
+	fmt.Fprintln(acc, "refcnt:", a.RefCnt)
 	return acc.N, acc.Err
 }
 
@@ -791,8 +794,9 @@ func (a *Ip4Address) String() string {
 	return StringOf(a)
 }
 func (a *Ip4Address) WriteTo(w io.Writer) (int64, error) {
-	var acc Accumulator
-	acc.Fprintf(w, "%d.%d.%d.%d", a[0], a[1], a[2], a[3])
+	acc := accumulate.NewWriter(w)
+	defer acc.Fini()
+	fmt.Fprintf(acc, "%d.%d.%d.%d", a[0], a[1], a[2], a[3])
 	return acc.N, acc.Err
 }
 
@@ -825,8 +829,9 @@ func (a *Ip6Address) String() string {
 	return StringOf(a)
 }
 func (a *Ip6Address) WriteTo(w io.Writer) (int64, error) {
-	var acc Accumulator
-	acc.Fprint(w, net.IP(a[:]))
+	acc := accumulate.NewWriter(w)
+	defer acc.Fini()
+	fmt.Fprint(acc, net.IP(a[:]))
 	return acc.N, acc.Err
 }
 
@@ -859,8 +864,9 @@ func (a *EthernetAddress) String() string {
 	return StringOf(a)
 }
 func (a *EthernetAddress) WriteTo(w io.Writer) (int64, error) {
-	var acc Accumulator
-	acc.Fprintf(w, "%02x:%02x:%02x:%02x:%02x:%02x",
+	acc := accumulate.NewWriter(w)
+	defer acc.Fini()
+	fmt.Fprintf(acc, "%02x:%02x:%02x:%02x:%02x:%02x",
 		a[0], a[1], a[2], a[3], a[4], a[5])
 	return acc.N, acc.Err
 }
@@ -1286,8 +1292,9 @@ func (a IfOperState) String() string {
 	return ifOperStates[a]
 }
 func (a IfOperState) WriteTo(w io.Writer) (int64, error) {
-	var acc Accumulator
-	acc.Fprint(w, a)
+	acc := accumulate.NewWriter(w)
+	defer acc.Fini()
+	fmt.Fprint(acc, a)
 	return acc.N, acc.Err
 }
 
@@ -1326,11 +1333,12 @@ func (a *IfAddrCacheInfo) Parse(b []byte) {
 	*a = *(*IfAddrCacheInfo)(unsafe.Pointer(&b[0]))
 }
 func (a *IfAddrCacheInfo) WriteTo(w io.Writer) (int64, error) {
-	var acc Accumulator
-	acc.Fprintln(w, "prefered:", a.Prefered)
-	acc.Fprintln(w, "valid:", a.Valid)
-	acc.Fprintln(w, "created:", a.CreatedTimestamp)
-	acc.Fprintln(w, "updated:", a.UpdatedTimestamp)
+	acc := accumulate.NewWriter(w)
+	defer acc.Fini()
+	fmt.Fprintln(acc, "prefered:", a.Prefered)
+	fmt.Fprintln(acc, "valid:", a.Valid)
+	fmt.Fprintln(acc, "created:", a.CreatedTimestamp)
+	fmt.Fprintln(acc, "updated:", a.UpdatedTimestamp)
 	return acc.N, acc.Err
 }
 
@@ -1438,7 +1446,8 @@ func (a Ip6IfFlagsAttr) Uint() uint32 {
 	return uint32(a)
 }
 func (a Ip6IfFlagsAttr) WriteTo(w io.Writer) (int64, error) {
-	var acc Accumulator
+	acc := accumulate.NewWriter(w)
+	defer acc.Fini()
 	for _, match := range []struct {
 		bit  Ip6IfFlagsAttr
 		name string
@@ -1453,9 +1462,9 @@ func (a Ip6IfFlagsAttr) WriteTo(w io.Writer) (int64, error) {
 	} {
 		if a&match.bit == match.bit {
 			if acc.N > 0 {
-				acc.Fprint(w, " | ")
+				fmt.Fprint(acc, " | ")
 			}
-			acc.Fprint(w, match.name)
+			fmt.Fprint(acc, match.name)
 		}
 	}
 	return acc.N, acc.Err
