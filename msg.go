@@ -115,7 +115,7 @@ func (h *Header) String() string {
 	return StringOf(h)
 }
 func (h *Header) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprintln(acc, "seq:", h.Sequence)
 	fmt.Fprintln(acc, "len:", h.Len)
@@ -160,7 +160,7 @@ func (m *NoopMessage) TxAdd(s *Socket) {
 	s.TxAddReq(&m.Header, 0)
 }
 func (m *NoopMessage) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, MessageType(m.Header.Type), ":\n")
 	indent.Increase(acc)
@@ -203,7 +203,7 @@ func (m *DoneMessage) TxAdd(s *Socket) {
 	s.TxAddReq(&m.Header, 0)
 }
 func (m *DoneMessage) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, MessageType(m.Header.Type), ":\n")
 	indent.Increase(acc)
@@ -253,7 +253,7 @@ func (m *ErrorMessage) TxAdd(s *Socket) {
 	e.Req = m.Req
 }
 func (m *ErrorMessage) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, MessageType(m.Header.Type), ":\n")
 	indent.Increase(acc)
@@ -278,7 +278,7 @@ func closeAttrs(attrs []Attr) {
 
 func fprintAttrs(w io.Writer, names []string, attrs []Attr) (int64,
 	error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	for i, v := range attrs {
 		if v == nil {
@@ -316,7 +316,7 @@ func (a StringAttr) String() string {
 	return string(a)
 }
 func (a StringAttr) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, a)
 	return acc.N, acc.Err
@@ -341,7 +341,7 @@ func (a Uint8Attr) Uint() uint8 {
 	return uint8(a)
 }
 func (a Uint8Attr) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, a.Uint())
 	return acc.N, acc.Err
@@ -367,7 +367,7 @@ func (a Uint16Attr) Uint() uint16 {
 	return uint16(a)
 }
 func (a Uint16Attr) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, a.Uint())
 	return acc.N, acc.Err
@@ -393,7 +393,7 @@ func (a Uint32Attr) Uint() uint32 {
 	return uint32(a)
 }
 func (a Uint32Attr) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, a.Uint())
 	return acc.N, acc.Err
@@ -419,7 +419,7 @@ func (a Uint64Attr) Uint() uint64 {
 	return uint64(a)
 }
 func (a Uint64Attr) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, a.Uint())
 	return acc.N, acc.Err
@@ -454,7 +454,7 @@ func (a *HexStringAttr) String() string {
 	return StringOf(a)
 }
 func (a *HexStringAttr) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, hex.EncodeToString(a.Buffer().Bytes()))
 	return acc.N, acc.Err
@@ -526,7 +526,7 @@ func (a *AttrArray) String() string {
 	return StringOf(a)
 }
 func (a *AttrArray) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	for i, v := range a.X {
 		if v == nil {
@@ -576,7 +576,7 @@ func (a *LinkStats) String() string {
 	return StringOf(a)
 }
 func (a *LinkStats) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	for i, v := range a {
 		t := LinkStatType(i)
@@ -616,7 +616,7 @@ func (a *LinkStats64) String() string {
 	return StringOf(a)
 }
 func (a *LinkStats64) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	for i, v := range a {
 		t := LinkStatType(i)
@@ -712,7 +712,7 @@ func (m *IfInfoMessage) TxAdd(s *Socket) {
 }
 
 func (m *IfInfoMessage) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, MessageType(m.Header.Type), ":\n")
 	indent.Increase(acc)
@@ -759,7 +759,7 @@ func (a *Ip4DevConf) String() string {
 	return StringOf(a)
 }
 func (a *Ip4DevConf) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	indent.Increase(acc)
 	for i, v := range a {
@@ -820,7 +820,7 @@ func (a *Ip6DevConf) String() string {
 	return StringOf(a)
 }
 func (a *Ip6DevConf) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	indent.Increase(acc)
 	for i, v := range a {
@@ -954,7 +954,7 @@ func (m *IfAddrMessage) TxAdd(s *Socket) {
 }
 
 func (m *IfAddrMessage) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, MessageType(m.Header.Type), ":\n")
 	indent.Increase(acc)
@@ -986,7 +986,7 @@ func (a IfAddrFlagAttr) String() string {
 	return IfAddrFlags(a).String()
 }
 func (a IfAddrFlagAttr) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, IfAddrFlags(a))
 	return acc.N, acc.Err
@@ -1065,7 +1065,7 @@ func (m *RouteMessage) TxAdd(s *Socket) {
 }
 
 func (m *RouteMessage) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, MessageType(m.Header.Type), ":\n")
 	indent.Increase(acc)
@@ -1164,7 +1164,7 @@ func (m *NeighborMessage) TxAdd(s *Socket) {
 }
 
 func (m *NeighborMessage) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, MessageType(m.Header.Type), ":\n")
 	indent.Increase(acc)

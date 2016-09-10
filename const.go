@@ -502,7 +502,7 @@ func (a *RtaCacheInfo) Parse(b []byte) {
 	*a = *(*RtaCacheInfo)(unsafe.Pointer(&b[0]))
 }
 func (a *RtaCacheInfo) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprintln(acc, "clntref:", a.ClntRef)
 	fmt.Fprintln(acc, "lastuse:", a.LastUse)
@@ -645,7 +645,7 @@ func (a *NdaCacheInfo) String() string {
 	return StringOf(a)
 }
 func (a *NdaCacheInfo) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprintln(acc, "confirmed:", a.Confirmed)
 	fmt.Fprintln(acc, "used:", a.Used)
@@ -799,7 +799,7 @@ func (a *Ip4Address) String() string {
 	return StringOf(a)
 }
 func (a *Ip4Address) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprintf(acc, "%d.%d.%d.%d", a[0], a[1], a[2], a[3])
 	return acc.N, acc.Err
@@ -834,7 +834,7 @@ func (a *Ip6Address) String() string {
 	return StringOf(a)
 }
 func (a *Ip6Address) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, net.IP(a[:]))
 	return acc.N, acc.Err
@@ -869,7 +869,7 @@ func (a *EthernetAddress) String() string {
 	return StringOf(a)
 }
 func (a *EthernetAddress) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprintf(acc, "%02x:%02x:%02x:%02x:%02x:%02x",
 		a[0], a[1], a[2], a[3], a[4], a[5])
@@ -1297,7 +1297,7 @@ func (a IfOperState) String() string {
 	return ifOperStates[a]
 }
 func (a IfOperState) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprint(acc, a)
 	return acc.N, acc.Err
@@ -1338,7 +1338,7 @@ func (a *IfAddrCacheInfo) Parse(b []byte) {
 	*a = *(*IfAddrCacheInfo)(unsafe.Pointer(&b[0]))
 }
 func (a *IfAddrCacheInfo) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	fmt.Fprintln(acc, "prefered:", a.Prefered)
 	fmt.Fprintln(acc, "valid:", a.Valid)
@@ -1451,7 +1451,7 @@ func (a Ip6IfFlagsAttr) Uint() uint32 {
 	return uint32(a)
 }
 func (a Ip6IfFlagsAttr) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.NewWriter(w)
+	acc := accumulate.New(w)
 	defer acc.Fini()
 	for _, match := range []struct {
 		bit  Ip6IfFlagsAttr
