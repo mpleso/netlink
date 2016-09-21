@@ -17,6 +17,7 @@ var pool = struct {
 	IfAddrMessage   sync.Pool
 	IfInfoMessage   sync.Pool
 	NeighborMessage sync.Pool
+	NetnsMessage    sync.Pool
 	NoopMessage     sync.Pool
 	RouteMessage    sync.Pool
 	AttrArray       sync.Pool
@@ -65,6 +66,11 @@ var pool = struct {
 	NeighborMessage: sync.Pool{
 		New: func() interface{} {
 			return new(NeighborMessage)
+		},
+	},
+	NetnsMessage: sync.Pool{
+		New: func() interface{} {
+			return new(NetnsMessage)
 		},
 	},
 	NoopMessage: sync.Pool{
@@ -167,6 +173,9 @@ func repool(v interface{}) {
 	case *NeighborMessage:
 		*t = NeighborMessage{}
 		pool.NeighborMessage.Put(t)
+	case *NetnsMessage:
+		*t = NetnsMessage{}
+		pool.NetnsMessage.Put(t)
 	case *NoopMessage:
 		*t = NoopMessage{}
 		pool.NoopMessage.Put(t)

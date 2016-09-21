@@ -6,23 +6,9 @@ package netlink
 
 import (
 	"fmt"
-	"io"
-	"net"
-	"unsafe"
 
-	"github.com/platinasystems/accumulate"
 	"github.com/platinasystems/elib"
 )
-
-type Header struct {
-	Len      uint32
-	Type     MsgType
-	Flags    HeaderFlags
-	Sequence uint32
-	Pid      uint32
-}
-
-const SizeofHeader = 16
 
 type Empty struct{}
 
@@ -248,27 +234,6 @@ type NlAttr struct {
 
 const SizeofNlAttr = 4
 
-type IfInfomsg struct {
-	Family uint8
-	_      uint8
-	Type   uint16
-	Index  uint32
-	Flags  IfInfoFlags
-	Change IfInfoFlags
-}
-
-const SizeofIfInfomsg = 16
-
-type IfAddrmsg struct {
-	Family    AddressFamily
-	Prefixlen uint8
-	Flags     uint8
-	Scope     uint8
-	Index     uint32
-}
-
-const SizeofIfAddrmsg = 8
-
 type RtScope uint8
 
 const (
@@ -290,20 +255,6 @@ var scopeNames = []string{
 
 func (s RtScope) String() string { return elib.Stringer(scopeNames, int(s)) }
 func (s RtScope) Uint() uint8    { return uint8(s) }
-
-type Rtmsg struct {
-	Family   AddressFamily
-	DstLen   uint8
-	SrcLen   uint8
-	Tos      uint8
-	Table    uint8
-	Protocol RouteProtocol
-	Scope    RtScope
-	Type     RouteType
-	Flags    RouteFlags
-}
-
-const SizeofRtmsg = 12
 
 type RouteType uint8
 
@@ -466,63 +417,6 @@ func (x RouteAttrKind) String() string {
 	return elib.Stringer(routeAttrKindNames, int(x))
 }
 
-type RtaCacheInfo struct {
-	ClntRef uint32
-	LastUse uint32
-	Expires uint32
-	Error   uint32
-	Used    uint32
-}
-
-func NewRtaCacheInfoBytes(b []byte) *RtaCacheInfo {
-	a := pool.RtaCacheInfo.Get().(*RtaCacheInfo)
-	a.Parse(b)
-	return a
-}
-
-func (a *RtaCacheInfo) attr() {}
-
-func (a *RtaCacheInfo) multiline() {}
-
-func (a *RtaCacheInfo) Close() error {
-	repool(a)
-	return nil
-}
-func (a *RtaCacheInfo) Set(v []byte) {
-	panic("should never be called")
-}
-func (a *RtaCacheInfo) Size() int {
-	panic("should never be called")
-	return 0
-}
-func (a *RtaCacheInfo) String() string {
-	return StringOf(a)
-}
-func (a *RtaCacheInfo) Parse(b []byte) {
-	*a = *(*RtaCacheInfo)(unsafe.Pointer(&b[0]))
-}
-func (a *RtaCacheInfo) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.New(w)
-	defer acc.Fini()
-	fmt.Fprintln(acc, "clntref:", a.ClntRef)
-	fmt.Fprintln(acc, "lastuse:", a.LastUse)
-	fmt.Fprintln(acc, "expires:", a.Expires)
-	fmt.Fprintln(acc, "error:", a.Error)
-	fmt.Fprintln(acc, "used:", a.Used)
-	return acc.N, acc.Err
-}
-
-type Ndmsg struct {
-	Family AddressFamily
-	_      [3]uint8
-	Index  uint32
-	State  NeighborState
-	Flags  uint8
-	Type   RouteType
-}
-
-const SizeofNdmsg = 12
-
 type NeighborAttrKind int
 
 const (
@@ -610,51 +504,9 @@ func (x NeighborState) String() string {
 	return elib.FlagStringer(neighborStateNames, elib.Word(x))
 }
 
-type NdaCacheInfo struct {
-	Confirmed uint32
-	Used      uint32
-	Updated   uint32
-	RefCnt    uint32
-}
-
-func NewNdaCacheInfoBytes(b []byte) *NdaCacheInfo {
-	a := pool.NdaCacheInfo.Get().(*NdaCacheInfo)
-	a.Parse(b)
-	return a
-}
-
-func (a *NdaCacheInfo) attr() {}
-
-func (a *NdaCacheInfo) multiline() {}
-
-func (a *NdaCacheInfo) Close() error {
-	repool(a)
-	return nil
-}
-func (a *NdaCacheInfo) Parse(b []byte) {
-	*a = *(*NdaCacheInfo)(unsafe.Pointer(&b[0]))
-}
-func (a *NdaCacheInfo) Set(v []byte) {
-	panic("should never be called")
-}
-func (a *NdaCacheInfo) Size() int {
-	panic("should never be called")
-	return 0
-}
-func (a *NdaCacheInfo) String() string {
-	return StringOf(a)
-}
-func (a *NdaCacheInfo) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.New(w)
-	defer acc.Fini()
-	fmt.Fprintln(acc, "confirmed:", a.Confirmed)
-	fmt.Fprintln(acc, "used:", a.Used)
-	fmt.Fprintln(acc, "updated:", a.Updated)
-	fmt.Fprintln(acc, "refcnt:", a.RefCnt)
-	return acc.N, acc.Err
-}
-
 type AddressFamily uint8
+
+const SizeofAddressFamily = 1
 
 const (
 	AF_UNSPEC AddressFamily = iota
@@ -768,112 +620,6 @@ func (t *AddressFamilyAttrType) IthString(i int) string {
 
 type AddressFamilyAddress interface {
 	String([]byte) string
-}
-
-type Ip4Address [4]byte
-
-func NewIp4AddressBytes(b []byte) *Ip4Address {
-	a := pool.Ip4Address.Get().(*Ip4Address)
-	a.Parse(b)
-	return a
-}
-
-func (a *Ip4Address) attr() {}
-func (a *Ip4Address) Bytes() []byte {
-	return a[:]
-}
-func (a *Ip4Address) Close() error {
-	repool(a)
-	return nil
-}
-func (a *Ip4Address) Parse(b []byte) {
-	copy(a[:], b[:4])
-}
-func (a *Ip4Address) Set(v []byte) {
-	copy(v, a[:])
-}
-func (a *Ip4Address) Size() int {
-	return len(a)
-}
-func (a *Ip4Address) String() string {
-	return StringOf(a)
-}
-func (a *Ip4Address) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.New(w)
-	defer acc.Fini()
-	fmt.Fprintf(acc, "%d.%d.%d.%d", a[0], a[1], a[2], a[3])
-	return acc.N, acc.Err
-}
-
-type Ip6Address [16]byte
-
-func NewIp6AddressBytes(b []byte) *Ip6Address {
-	a := pool.Ip6Address.Get().(*Ip6Address)
-	a.Parse(b)
-	return a
-}
-
-func (a *Ip6Address) attr() {}
-func (a *Ip6Address) Bytes() []byte {
-	return a[:]
-}
-func (a *Ip6Address) Close() error {
-	repool(a)
-	return nil
-}
-func (a *Ip6Address) Parse(b []byte) {
-	copy(a[:], b[:16])
-}
-func (a *Ip6Address) Set(v []byte) {
-	copy(v, a[:])
-}
-func (a *Ip6Address) Size() int {
-	return len(a)
-}
-func (a *Ip6Address) String() string {
-	return StringOf(a)
-}
-func (a *Ip6Address) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.New(w)
-	defer acc.Fini()
-	fmt.Fprint(acc, net.IP(a[:]))
-	return acc.N, acc.Err
-}
-
-type EthernetAddress [6]byte
-
-func NewEthernetAddressBytes(b []byte) *EthernetAddress {
-	a := pool.EthernetAddress.Get().(*EthernetAddress)
-	a.Parse(b)
-	return a
-}
-
-func (a *EthernetAddress) attr() {}
-func (a *EthernetAddress) Bytes() []byte {
-	return a[:]
-}
-func (a *EthernetAddress) Close() error {
-	repool(a)
-	return nil
-}
-func (a *EthernetAddress) Parse(b []byte) {
-	copy(a[:], b[:6])
-}
-func (a *EthernetAddress) Set(v []byte) {
-	copy(v, a[:])
-}
-func (a *EthernetAddress) Size() int {
-	return len(a)
-}
-func (a *EthernetAddress) String() string {
-	return StringOf(a)
-}
-func (a *EthernetAddress) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.New(w)
-	defer acc.Fini()
-	fmt.Fprintf(acc, "%02x:%02x:%02x:%02x:%02x:%02x",
-		a[0], a[1], a[2], a[3], a[4], a[5])
-	return acc.N, acc.Err
 }
 
 func afAddr(af AddressFamily, b []byte) Attr {
@@ -1281,72 +1027,6 @@ var ifOperStates = []string{
 	"up",
 }
 
-type IfOperState uint8
-
-func (a IfOperState) attr() {}
-func (a IfOperState) Set(v []byte) {
-	panic("should never be called")
-}
-func (a IfOperState) Size() int {
-	return 1
-}
-func (a IfOperState) String() string {
-	if int(a) >= len(ifOperStates) {
-		a = 0
-	}
-	return ifOperStates[a]
-}
-func (a IfOperState) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.New(w)
-	defer acc.Fini()
-	fmt.Fprint(acc, a)
-	return acc.N, acc.Err
-}
-
-type IfAddrCacheInfo struct {
-	Prefered         uint32
-	Valid            uint32
-	CreatedTimestamp uint32 /* created timestamp, hundredths of seconds */
-	UpdatedTimestamp uint32 /* updated timestamp, hundredths of seconds */
-}
-
-func NewIfAddrCacheInfoBytes(b []byte) *IfAddrCacheInfo {
-	a := pool.IfAddrCacheInfo.Get().(*IfAddrCacheInfo)
-	a.Parse(b)
-	return a
-}
-
-func (a *IfAddrCacheInfo) attr() {}
-
-func (a *IfAddrCacheInfo) multiline() {}
-
-func (a *IfAddrCacheInfo) Close() error {
-	repool(a)
-	return nil
-}
-func (a *IfAddrCacheInfo) Set(v []byte) {
-	panic("should never be called")
-}
-func (a *IfAddrCacheInfo) Size() int {
-	panic("should never be called")
-	return 0
-}
-func (a *IfAddrCacheInfo) String() string {
-	return StringOf(a)
-}
-func (a *IfAddrCacheInfo) Parse(b []byte) {
-	*a = *(*IfAddrCacheInfo)(unsafe.Pointer(&b[0]))
-}
-func (a *IfAddrCacheInfo) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.New(w)
-	defer acc.Fini()
-	fmt.Fprintln(acc, "prefered:", a.Prefered)
-	fmt.Fprintln(acc, "valid:", a.Valid)
-	fmt.Fprintln(acc, "created:", a.CreatedTimestamp)
-	fmt.Fprintln(acc, "updated:", a.UpdatedTimestamp)
-	return acc.N, acc.Err
-}
-
 const (
 	IFLA_INET_UNSPEC Ip4IfAttrKind = iota
 	IFLA_INET_CONF
@@ -1430,50 +1110,6 @@ const (
 	INET6_IF_RS_SENT         = Ip6IfFlagsAttr(0x10)
 	INET6_IF_READY           = Ip6IfFlagsAttr(0x80000000)
 )
-
-type Ip6IfFlagsAttr uint32
-
-func Ip6IfFlagsAttrBytes(b []byte) Ip6IfFlagsAttr {
-	return Ip6IfFlagsAttr(*(*uint32)(unsafe.Pointer(&b[0])))
-}
-
-func (a Ip6IfFlagsAttr) attr() {}
-func (a Ip6IfFlagsAttr) Set(v []byte) {
-	*(*Ip6IfFlagsAttr)(unsafe.Pointer(&v[0])) = a
-}
-func (a Ip6IfFlagsAttr) Size() int {
-	return 4
-}
-func (a Ip6IfFlagsAttr) String() string {
-	return StringOf(a)
-}
-func (a Ip6IfFlagsAttr) Uint() uint32 {
-	return uint32(a)
-}
-func (a Ip6IfFlagsAttr) WriteTo(w io.Writer) (int64, error) {
-	acc := accumulate.New(w)
-	defer acc.Fini()
-	for _, match := range []struct {
-		bit  Ip6IfFlagsAttr
-		name string
-	}{
-		{INET6_IF_PREFIX_ONLINK, "ONLINK"},
-		{INET6_IF_PREFIX_AUTOCONF, "AUTOCONF"},
-		{INET6_IF_RA_OTHERCONF, "OTHERCONF"},
-		{INET6_IF_RA_MANAGED, "MANAGED"},
-		{INET6_IF_RA_RCVD, "RCVD"},
-		{INET6_IF_RS_SENT, "SENT"},
-		{INET6_IF_READY, "READY"},
-	} {
-		if a&match.bit == match.bit {
-			if acc.N > 0 {
-				fmt.Fprint(acc, " | ")
-			}
-			fmt.Fprint(acc, match.name)
-		}
-	}
-	return acc.N, acc.Err
-}
 
 const (
 	IPV4_DEVCONF_FORWARDING Ip4DevConfKind = iota + 1
@@ -1712,4 +1348,26 @@ func (t LinkStatType) String() string {
 	} else {
 		panic(fmt.Errorf("unknown link stat type: %d", i))
 	}
+}
+
+type NetnsAttrKind int
+
+const NETNSA_NSID_NOT_ASSIGNED = NetnsAttrKind(-1)
+const (
+	NETNSA_NONE NetnsAttrKind = iota
+	NETNSA_NSID
+	NETNSA_PID
+	NETNSA_FD
+	NETNSA_MAX
+)
+
+var netnsAttrKindNames = []string{
+	NETNSA_NONE: "NONE",
+	NETNSA_NSID: "NSID",
+	NETNSA_PID:  "PID",
+	NETNSA_FD:   "FD",
+}
+
+func (x NetnsAttrKind) String() string {
+	return elib.Stringer(netnsAttrKindNames, int(x))
 }
