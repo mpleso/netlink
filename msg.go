@@ -74,11 +74,10 @@ func (h *Header) WriteTo(w io.Writer) (int64, error) {
 type GenMessage struct {
 	Header
 	AddressFamily
-	_ [3]byte
 }
 
 const SizeofGenMessage = SizeofHeader + SizeofGenmsg
-const SizeofGenmsg = SizeofAddressFamily + 3
+const SizeofGenmsg = SizeofAddressFamily
 
 func NewGenMessage() *GenMessage {
 	m := pool.GenMessage.Get().(*GenMessage)
@@ -107,7 +106,7 @@ func (m *GenMessage) String() string {
 	return StringOf(m)
 }
 func (m *GenMessage) TxAdd(s *Socket) {
-	b := s.TxAddReq(&m.Header, SizeofGenMessage)
+	b := s.TxAddReq(&m.Header, SizeofGenmsg)
 	p := (*GenMessage)(unsafe.Pointer(&b[0]))
 	p.AddressFamily = m.AddressFamily
 }
@@ -702,7 +701,9 @@ type NetnsMessage struct {
 	Attrs [NETNSA_MAX]Attr
 }
 
-const SizeofNetnsMessage = SizeofGenMessage
+const NetnsPad = 3
+const SizeofNetnsmsg = SizeofGenmsg + NetnsPad
+const SizeofNetnsMessage = SizeofGenMessage + NetnsPad
 
 func NewNetnsMessage() *NetnsMessage {
 	m := pool.NetnsMessage.Get().(*NetnsMessage)
@@ -772,7 +773,7 @@ func (m *NetnsMessage) String() string {
 func (m *NetnsMessage) TxAdd(s *Socket) {
 	defer m.Close()
 	as := AttrVec(m.Attrs[:])
-	b := s.TxAddReq(&m.Header, SizeofGenmsg+as.Size())
+	b := s.TxAddReq(&m.Header, SizeofNetnsmsg+as.Size())
 	b[SizeofHeader] = byte(m.AddressFamily)
 	as.Set(b[SizeofNetnsMessage:])
 }
