@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/platinasystems/elib"
+	"github.com/platinasystems/go/elib"
 )
 
 var DefaultGroups = []MulticastGroup{

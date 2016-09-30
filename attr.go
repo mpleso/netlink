@@ -12,9 +12,9 @@ import (
 	"net"
 	"unsafe"
 
-	"github.com/platinasystems/accumulate"
-	"github.com/platinasystems/elib"
-	"github.com/platinasystems/indent"
+	"github.com/platinasystems/go/accumulate"
+	"github.com/platinasystems/go/elib"
+	"github.com/platinasystems/go/indent"
 )
 
 type AttrType interface {
@@ -159,8 +159,7 @@ func parse_ip6_af_spec(b []byte) *AttrArray {
 	return as
 }
 
-//go:generate go build github.com/platinasystems/elib/gentemplate
-//go:generate ./gentemplate -d Package=netlink -id Attr -d VecType=AttrVec -d Type=Attr github.com/platinasystems/elib/vec.tmpl
+//go:generate gentemplate -d Package=netlink -id Attr -d VecType=AttrVec -d Type=Attr github.com/platinasystems/go/elib/vec.tmpl
 
 func (a AttrVec) Size() (l int) {
 	for i := range a {

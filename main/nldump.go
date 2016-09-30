@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/platinasystems/netlink"
+	"github.com/platinasystems/go/netlink"
 )
 
 func main() {

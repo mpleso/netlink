@@ -13,8 +13,8 @@ import (
 
 	"unsafe"
 
-	"github.com/platinasystems/accumulate"
-	"github.com/platinasystems/indent"
+	"github.com/platinasystems/go/accumulate"
+	"github.com/platinasystems/go/indent"
 )
 
 type Byter interface {

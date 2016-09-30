@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/platinasystems/indent"
+	"github.com/platinasystems/go/indent"
 )
 
 var usage = `

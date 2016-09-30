@@ -7,7 +7,7 @@ package netlink
 import (
 	"fmt"
 
-	"github.com/platinasystems/elib"
+	"github.com/platinasystems/go/elib"
 )
 
 type Empty struct{}
